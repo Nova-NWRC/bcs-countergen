@@ -21,7 +21,7 @@ specs = [
             bg="#B7D5EC", band="#5B8FD6", bar_color="#2F5FA8"),
     # 步兵（徒步）
     Counter(kind="inf", unit_id="II/505", formation_id="10 GD", size_label="II", ar="5",
-            quality="3", rng="", ma="8", move_class="leg", hard=False, symbol="inf",
+            quality="3", rng="", ma="8", move_class="leg", ma_move="12", move_class_move="truck", hard=False, symbol="inf",
             bg="#F2DCB0", band="#E8C10C", bar_color="#D97A20"),
     # 双能力
     Counter(kind="dual", unit_id="23", formation_id="Pape", size_label="I", ar="5",
@@ -29,7 +29,7 @@ specs = [
             bg="#BFC0B6", band="#8FA8C8", bar_color="#7A3E8F"),
     # HQ（正面=正常面）
     Counter(kind="hq", side="front", formation_id="30 Inf", command_radius="10",
-            size_label="XX", arty="4", activation="4", ma="8", symbol="inf",
+            size_label="XX", arty="4", activation="4", ma="8", move_class="leg", symbol="inf",
             symbol_mode="glyph", bg="#7E9B3D", bar_color="#6E8B3D"),
     # 辎重
     Counter(kind="train", formation_id="Pape", name="KG", ma="12",

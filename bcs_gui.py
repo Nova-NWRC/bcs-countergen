@@ -209,11 +209,18 @@ class App:
                                                    bool(self.vars["hq_box_tint"].get()))
                         ).grid(row=22, column=0, columnspan=2, sticky="w")
 
+        self.vars["move_class_move"] = tk.StringVar()
+        cb_mcm = ttk.Combobox(g, textvariable=self.vars["move_class_move"], state="readonly",
+                              values=["", "leg", "truck", "tac"])
+        row(g, "移动面移动力类型", cb_mcm, 24)
+        cb_mcm.bind("<<ComboboxSelected>>",
+                    lambda e: self._push("move_class_move", self.vars["move_class_move"].get()))
+
         self.vars["back_ghost"] = tk.BooleanVar()
         ttk.Checkbutton(g, text="移动面 AR 虚化（背面）", variable=self.vars["back_ghost"],
                         command=lambda: self._push(
                             "back_ghost", bool(self.vars["back_ghost"].get()))
-                        ).grid(row=23, column=0, columnspan=2, sticky="w")
+                        ).grid(row=25, column=0, columnspan=2, sticky="w")
 
         # --- 配色
         g = group("④ 配色 · 色带")

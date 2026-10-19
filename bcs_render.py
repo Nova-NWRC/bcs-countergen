@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 BCS 算子生成器 —— 渲染核心
 版式严格对照 BCS 系列 Unit Key (BCSV/Unit Key.png)：
@@ -232,6 +232,7 @@ class Counter:
     ar_move: str = ""               # 移动面的行动值（留空=沿用 ar）
     quality_move: str = ""          # 移动面的素质值（留空=沿用 quality）
     ma_move: str = ""               # 移动面的机动力（留空=沿用 ma）
+    move_class_move: str = ""       # 移动面的移动力类型 leg/truck/tac（留空=沿用 move_class）
     back_ghost: bool = True         # 移动面是否把 AR 画成虚化样式
     ar_style: str = "box"           # box / disc / ghost / none
     range_style: str = "plain"       # plain=直接印数字 / chip=白底小牌
@@ -677,18 +678,19 @@ def draw_die(c: Ctx, box, value: str, ink: str, pip: str = "#141414"):
         c.ellipse((px_ - r, py_ - r, px_ + r, py_ + r), fill=pip)
 
 
-def draw_badged_value(c: Ctx, xy, txt, h: float, style: dict, bg: str):
+def draw_badged_value(c: Ctx, xy, txt, h: float, style: dict, bg: str, fnt: str = None):
     """按分类给数字上色：fill = 字身色，outline = 描边色。
 
     fill 为 None 时用算子底色冒充“透明底”，只留一圈黑边（Limited AV）。
+    fnt 留空时：两位数用窄体（横向占位 1.13×h），单数字用粗体。
     """
     if not txt:
         return
     fill = style.get("fill") or bg
     hollow = style.get("fill") is None
     txt = str(txt)
-    # 两位数改用窄体：横向占位从 1.67×h 收到约 1.13×h，避免压到中轴上的素质/射程
-    fnt = "narrow_b" if len(txt) >= 2 else "black"
+    if not fnt:
+        fnt = "narrow_b" if len(txt) >= 2 else "black"
     draw_value_symmetric(c, xy, txt, fill, h,
                          halo_w=1.5 if hollow else 1.05, shadow=False, fnt=fnt)
 
@@ -989,7 +991,9 @@ def draw_hq(c: Ctx, ct: Counter, ink: str, value_ink: str):
         draw_fit_text(c, L["HQ_NAME_B"], name, L["HQ_NAME_H"], L["HQ_NAME_MAXW"],
                       L["HQ_BAND_COLOR"], "#141414", 1.15, fnt="narrow_b")
         _hq_num(c, L["HQ_ARTY_B"], ct.arty, ink)
-        _hq_num(c, L["HQ_MA_B"], ct.ma, ink, L["HQ_NUM_H"] * L["HQ_MA_SCALE"], force_black=False, fnt="narrow_b")
+        draw_badged_value(c, L["HQ_MA_B"], ct.ma, L["HQ_NUM_H"] * L["HQ_MA_SCALE"],
+                          MOVE_CLASS_STYLE.get(ct.move_class, MOVE_CLASS_STYLE["tac"]),
+                          ct.bg, fnt="narrow_b")
         return
 
     # 正面：兵牌 + 规模标志 + 炮击点数 + 番号
@@ -1075,7 +1079,8 @@ def render(ct: Counter, size: int = 75, ss: int = 4) -> Image.Image:
     if ct.side == "back":
         ct = ct.copy(ar=ct.ar_move or ct.ar,
                      quality=ct.quality_move or ct.quality,
-                     ma=ct.ma_move or ct.ma)
+                     ma=ct.ma_move or ct.ma,
+                     move_class=ct.move_class_move or ct.move_class)
         if ct.back_ghost and ct.ar_style == "box":
             ct = ct.copy(ar_style="ghost")
 
