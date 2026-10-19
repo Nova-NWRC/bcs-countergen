@@ -1,0 +1,27 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.spec
+.venv/
+venv/
+
+# ---- 构建产物（exe 走 GitHub Releases，不进仓库）----
+build/
+dist/
+*.exe
+
+# ---- 导出与临时文件 ----
+out/
+_cli_out/
+_cli/
+_t/
+_inspect/
+_zoom/
+*.log
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
