@@ -32,7 +32,7 @@ class App:
     def __init__(self, root: tk.Tk):
         self.root = root
         root.title("BCS 算子生成器 · Unit-Key 版式")
-        root.geometry("1200x800")
+        root.geometry("1220x880")
         root.minsize(1080, 720)
 
         self.ct = R.Counter(kind="inf", unit_id="II/505", formation_id="10 GD")
@@ -97,18 +97,42 @@ class App:
         right.pack(side="right", fill="y")
         p = self._scrollable(right)
 
-        def group(title):
-            f = ttk.LabelFrame(p, text=title, padding=6)
-            f.pack(fill="x", pady=4)
+        # ---- 小工具 ----------------------------------------------------
+        def group(title, hint=None):
+            f = ttk.LabelFrame(p, text=title, padding=(8, 4))
+            f.pack(fill="x", pady=(4, 2))
+            if hint:
+                ttk.Label(f, text=hint, foreground="#777", wraplength=390,
+                          justify="left").grid(row=90, column=0, columnspan=4,
+                                               sticky="w", pady=(3, 0))
             return f
 
-        def row(f, label, widget, r):
-            ttk.Label(f, text=label, width=13, anchor="e").grid(row=r, column=0, sticky="e", pady=2)
-            widget.grid(row=r, column=1, sticky="we", pady=2)
-            f.columnconfigure(1, weight=1)
+        def row(f, label, widget, r, col=0):
+            ttk.Label(f, text=label, width=9, anchor="e").grid(
+                row=r, column=col * 2, sticky="e", padx=(0, 4), pady=1)
+            widget.grid(row=r, column=col * 2 + 1, sticky="we", pady=1)
+            f.columnconfigure(col * 2 + 1, weight=1)
 
-        # --- 类型
-        g = group("① 类型与符号")
+        def row2(f, r, l1, w1, l2, w2):
+            row(f, l1, w1, r, 0)
+            row(f, l2, w2, r, 1)
+
+        def chk(f, key, text, r, col=0, span=2):
+            self.vars[key] = tk.BooleanVar()
+            ttk.Checkbutton(f, text=text, variable=self.vars[key],
+                            command=lambda k=key: self._push(k, bool(self.vars[k].get()))
+                            ).grid(row=r, column=col, columnspan=span, sticky="w", pady=1)
+
+        def combo(f, key, values, label, r, col=0):
+            self.vars[key] = tk.StringVar()
+            w = ttk.Combobox(f, textvariable=self.vars[key], state="readonly", values=values)
+            row(f, label, w, r, col)
+            w.bind("<<ComboboxSelected>>",
+                   lambda e, k=key: self._push(k, self.vars[k].get()))
+            return w
+
+        # ---- ① 基本 ----------------------------------------------------
+        g = group("① 基本：类型 · 符号")
         self.vars["kind"] = tk.StringVar()
         cb = ttk.Combobox(g, textvariable=self.vars["kind"], state="readonly",
                           values=[f"{k} · {n}" for k, n in R.KINDS])
@@ -121,118 +145,63 @@ class App:
         row(g, "兵种符号", cb2, 1)
         cb2.bind("<<ComboboxSelected>>", lambda e: self._apply_choice("symbol", R.SYMBOLS))
 
-        self.vars["symbol_mode"] = tk.StringVar()
-        cb4 = ttk.Combobox(g, textvariable=self.vars["symbol_mode"], state="readonly",
-                           values=["letter", "glyph"])
-        row(g, "符号画法", cb4, 2)
-        cb4.bind("<<ComboboxSelected>>", lambda e: self._push("symbol_mode", self.vars["symbol_mode"].get()))
+        row2(g, 2, "符号画法", combo(g, "symbol_mode", ["letter", "glyph"], "", 2, 1),
+             "字母代号", self._entry(g, "symbol_letters"))
+        row(g, "符号文字", self._entry(g, "symbol_text"), 3)
 
-        self.vars["symbol_letters"] = tk.StringVar()
-        row(g, "字母代号", self._entry(g, "symbol_letters"), 3)
-        self.vars["symbol_text"] = tk.StringVar()
-        row(g, "符号文字", self._entry(g, "symbol_text"), 4)
-        ttk.Label(g, text="（letter=用字母代号，留空自动取 INF/ARM/RCN…；glyph=图形符号；"
-                          "text 用自定义符号文字）",
-                  foreground="#666", wraplength=380).grid(row=5, column=0, columnspan=2, sticky="w")
-
-        # --- 番号
+        # ---- ② 番号 ----------------------------------------------------
         g = group("② 番号 · 编制 · 规模")
-        for i, (key, label) in enumerate([
-                ("unit_id", "单位番号(左竖)"), ("formation_id", "编制 ID(右竖)")]):
-            self.vars[key] = tk.StringVar()
-            row(g, label, self._entry(g, key), i)
+        row2(g, 0, "单位番号", self._entry(g, "unit_id"),
+             "编制 ID", self._entry(g, "formation_id"))
 
-        # 编制规模：北约符号下拉（I 连 / II 营 / III 团 / X 旅 / XX 师 / XXX 军 …），也可手输
         self.vars["size_label"] = tk.StringVar()
         cb_size = ttk.Combobox(g, textvariable=self.vars["size_label"],
                                values=[f"{k} · {n}" for k, n in R.SIZE_PRESETS])
-        row(g, "单位规模", cb_size, 2)
+        row2(g, 1, "单位规模", cb_size, "大字名/KG", self._entry(g, "name"))
         cb_size.bind("<<ComboboxSelected>>",
                      lambda e: self._push("size_label", self.vars["size_label"].get().split(" · ")[0]))
         cb_size.bind("<KeyRelease>", lambda e: self._push("size_label", self.vars["size_label"].get()))
 
-        self.vars["name"] = tk.StringVar()
-        row(g, "大字名 / KG 名", self._entry(g, "name"), 3)
+        # ---- ③ 战斗值（正面）-------------------------------------------
+        g = group("③ 战斗值 · 正面", "数值与它的「类型」同行；类型决定数字的底色与描边色。")
+        row2(g, 0, "顶部小框值", self._entry(g, "ar"),
+             "AR 样式", combo(g, "ar_style", ["box", "disc", "ghost", "none"], "", 0, 1))
+        row2(g, 1, "装甲值 AV", self._entry(g, "av"),
+             "类型", combo(g, "av_class", ["red", "limited", "standoff", "light"], "", 1, 1))
+        row2(g, 2, "机动力 MA", self._entry(g, "ma"),
+             "类型", combo(g, "move_class", ["leg", "truck", "tac"], "", 2, 1))
+        row2(g, 3, "素质值", self._entry(g, "quality"),
+             "射程", self._entry(g, "rng"))
+        row2(g, 4, "射程第二行", self._entry(g, "rng2"),
+             "中轴样式", combo(g, "range_style", ["plain", "chip"], "", 4, 1))
+        row(g, "Steps", self._entry(g, "steps"), 5)
+        chk(g, "assault", "突击箭头", 6, 0)
+        chk(g, "hard", "Hard 黄框", 6, 2)
+        chk(g, "breakthrough", "突破小三角", 7, 0, span=4)
 
-        # --- 数值
-        g = group("③ 数值")
-        for i, (key, label) in enumerate([
-                ("ar", "顶部小框值"), ("quality", "素质值(中轴上)"), ("av", "装甲值 AV"),
-                ("rng", "射程(中轴下)"), ("rng2", "射程第二行"), ("ma", "机动力 MA"),
-                ("steps", "Steps"), ("activation", "激活骰点"),
-                ("ma_move", "移动面机动力"), ("quality_move", "移动面素质"),
-                ("command_radius", "指挥半径"), ("arty", "炮兵点数")]):
-            self.vars[key] = tk.StringVar()
-            row(g, label, self._entry(g, key), i)
-        self.vars["ar_style"] = tk.StringVar()
-        cb3 = ttk.Combobox(g, textvariable=self.vars["ar_style"], state="readonly",
-                           values=["box", "disc", "ghost", "none"])
-        row(g, "AR 样式", cb3, 13)
-        cb3.bind("<<ComboboxSelected>>", lambda e: self._push("ar_style", self.vars["ar_style"].get()))
+        # ---- ④ 移动面覆写（背面）---------------------------------------
+        g = group("④ 移动面覆写 · 背面",
+                  "留空 = 沿用正面；填 - = 这一面不画该项；填值 = 覆盖正面。")
+        row2(g, 0, "装甲值", self._entry(g, "av_move"),
+             "射程", self._entry(g, "rng_move"))
+        row2(g, 1, "素质值", self._entry(g, "quality_move"),
+             "机动力", self._entry(g, "ma_move"))
+        row2(g, 2, "射程第二行", self._entry(g, "rng2_move"),
+             "顶部小框值", self._entry(g, "ar_move"))
+        row(g, "移动力类型", combo(g, "move_class_move", ["", "leg", "truck", "tac"], "", 3), 3)
+        chk(g, "back_ghost", "移动面 AR 虚化（灰字）", 4, 0, span=4)
 
-        self.vars["range_style"] = tk.StringVar()
-        cb5 = ttk.Combobox(g, textvariable=self.vars["range_style"], state="readonly",
-                           values=["plain", "chip"])
-        row(g, "中轴列样式", cb5, 14)
-        cb5.bind("<<ComboboxSelected>>", lambda e: self._push("range_style", self.vars["range_style"].get()))
+        # ---- ⑤ HQ · 支援 ----------------------------------------------
+        g = group("⑤ 指挥部 · 支援单位", "只有对应类型的算子会用到这些字段。")
+        row2(g, 0, "指挥半径", self._entry(g, "command_radius"),
+             "激活骰点", self._entry(g, "activation"))
+        row2(g, 1, "炮兵点数", self._entry(g, "arty"),
+             "Support 文字", self._entry(g, "support_label"))
+        chk(g, "hq_box_tint", "HQ 兵牌底色跟随编制色带", 2, 0, span=4)
+        chk(g, "support_values", "支援单位叠加数值", 3, 0, span=4)
 
-        self.vars["support_values"] = tk.BooleanVar()
-        ttk.Checkbutton(g, text="支援单位叠加数值", variable=self.vars["support_values"],
-                        command=lambda: self._push(
-                            "support_values", bool(self.vars["support_values"].get()))
-                        ).grid(row=15, column=0, columnspan=2, sticky="w")
-
-        for i, (key, label) in enumerate([("assault", "突击箭头"), ("hard", "Hard 黄框"),
-                                          ("breakthrough", "突破型小三角")]):
-            self.vars[key] = tk.BooleanVar()
-            cbx = ttk.Checkbutton(g, text=label, variable=self.vars[key],
-                                  command=lambda k=key: self._push(k, bool(self.vars[k].get())))
-            cbx.grid(row=16 + i, column=0, columnspan=2, sticky="w")
-
-        self.vars["move_class"] = tk.StringVar()
-        cb_mc = ttk.Combobox(g, textvariable=self.vars["move_class"], state="readonly",
-                             values=["leg", "truck", "tac"])
-        row(g, "移动力类型", cb_mc, 20)
-        cb_mc.bind("<<ComboboxSelected>>",
-                   lambda e: self._push("move_class", self.vars["move_class"].get()))
-
-        self.vars["av_class"] = tk.StringVar()
-        cb_ac = ttk.Combobox(g, textvariable=self.vars["av_class"], state="readonly",
-                             values=["red", "limited", "standoff", "light"])
-        row(g, "装甲值类型", cb_ac, 21)
-        cb_ac.bind("<<ComboboxSelected>>",
-                   lambda e: self._push("av_class", self.vars["av_class"].get()))
-
-        self.vars["hq_box_tint"] = tk.BooleanVar()
-        ttk.Checkbutton(g, text="HQ 兵牌底色跟随编制色带", variable=self.vars["hq_box_tint"],
-                        command=lambda: self._push("hq_box_tint",
-                                                   bool(self.vars["hq_box_tint"].get()))
-                        ).grid(row=22, column=0, columnspan=2, sticky="w")
-
-        self.vars["move_class_move"] = tk.StringVar()
-        cb_mcm = ttk.Combobox(g, textvariable=self.vars["move_class_move"], state="readonly",
-                              values=["", "leg", "truck", "tac"])
-        row(g, "移动面移动力类型", cb_mcm, 24)
-        cb_mcm.bind("<<ComboboxSelected>>",
-                    lambda e: self._push("move_class_move", self.vars["move_class_move"].get()))
-
-        self.vars["back_ghost"] = tk.BooleanVar()
-        ttk.Checkbutton(g, text="移动面 AR 虚化（背面）", variable=self.vars["back_ghost"],
-                        command=lambda: self._push(
-                            "back_ghost", bool(self.vars["back_ghost"].get()))
-                        ).grid(row=25, column=0, columnspan=2, sticky="w")
-
-        for i, (key, label) in enumerate([("av_move", "移动面装甲值"),
-                                          ("rng_move", "移动面射程"),
-                                          ("rng2_move", "移动面射程第二行")]):
-            self.vars[key] = tk.StringVar()
-            row(g, label, self._entry(g, key), 26 + i)
-        ttk.Label(g, text="移动面：留空 = 沿用正面；填 - = 这一面不画该项",
-                  foreground="#666", wraplength=380).grid(row=29, column=0, columnspan=2,
-                                                          sticky="w")
-
-        # --- 配色
-        g = group("④ 配色 · 色带")
+        # ---- ⑥ 配色 · 色带 --------------------------------------------
+        g = group("⑥ 配色 · 色带")
         self.vars["bg_preset"] = tk.StringVar()
         cbp = ttk.Combobox(g, textvariable=self.vars["bg_preset"], state="readonly",
                            values=list(R.BG_PRESETS.keys()))
@@ -240,56 +209,41 @@ class App:
         cbp.bind("<<ComboboxSelected>>", lambda e: self._apply_bg_preset())
 
         self.sw_bg = tk.Button(g, text="  底色  ", bg="#A3BA68", command=lambda: self._pick("bg"))
-        row(g, "底色", self.sw_bg, 1)
+        self.sw_band = tk.Button(g, text="  色带  ", bg="#E8C10C", command=lambda: self._pick("band"))
+        self.sw_bar = tk.Button(g, text=" 编制色带 ", bg="#C0392B", command=lambda: self._pick("bar_color"))
+        row2(g, 1, "底色", self.sw_bg, "机动色带", self.sw_band)
 
         self.vars["band_preset"] = tk.StringVar()
         cbm = ttk.Combobox(g, textvariable=self.vars["band_preset"], state="readonly",
                            values=list(R.MOVE_CLASS.keys()))
-        row(g, "机动等级", cbm, 2)
+        row2(g, 2, "机动等级", cbm, "编制色带", self.sw_bar)
         cbm.bind("<<ComboboxSelected>>", lambda e: self._apply_band_preset())
 
-        self.sw_band = tk.Button(g, text="  色带  ", bg="#E8C10C", command=lambda: self._pick("band"))
-        row(g, "机动色带", self.sw_band, 3)
-
-        self.sw_bar = tk.Button(g, text=" 编制色带 ", bg="#C0392B", command=lambda: self._pick("bar_color"))
-        row(g, "编制色带", self.sw_bar, 4)
-
-        # 师/编制配色快选（12 色，点一下即套到底边编制色带）
         sw = ttk.Frame(g)
-        sw.grid(row=5, column=0, columnspan=2, sticky="we", pady=2)
+        sw.grid(row=3, column=0, columnspan=4, sticky="we", pady=2)
         for i, (_nm, _hx) in enumerate(R.FORMATION_COLORS.items()):
             tk.Button(sw, width=2, bg=_hx, relief="flat", bd=1,
                       command=lambda c=_hx: self._set_bar_color(c)
                       ).grid(row=i // 6, column=i % 6, padx=1, pady=1, sticky="we")
             sw.columnconfigure(i % 6, weight=1)
 
-        self.vars["bar_pos"] = tk.StringVar()
-        cbb = ttk.Combobox(g, textvariable=self.vars["bar_pos"], state="readonly",
-                           values=["bottom", "top", "left", "right", "none"])
-        row(g, "色带位置", cbb, 6)
-        cbb.bind("<<ComboboxSelected>>", lambda e: self._push("bar_pos", self.vars["bar_pos"].get()))
-
         self.vars["bar_thickness"] = tk.DoubleVar(value=4.0)
-        sc = ttk.Scale(g, from_=0.0, to=8.0, variable=self.vars["bar_thickness"], command=self._lazy)
-        row(g, "色带厚度", sc, 7)
+        row2(g, 4, "色带位置", combo(g, "bar_pos", ["bottom", "top", "left", "right", "none"], "", 5),
+             "色带厚度", ttk.Scale(g, from_=0.0, to=8.0,
+                                   variable=self.vars["bar_thickness"], command=self._lazy))
+        chk(g, "show_band", "显示机动色带", 5, 0)
+        chk(g, "gloss", "高光斜面", 5, 2)
 
-        self.vars["show_band"] = tk.BooleanVar(value=True)
-        ttk.Checkbutton(g, text="显示机动色带", variable=self.vars["show_band"],
-                        command=lambda: self._push("show_band", bool(self.vars["show_band"].get()))
-                        ).grid(row=8, column=0, columnspan=2, sticky="w")
-        self.vars["gloss"] = tk.BooleanVar(value=True)
-        ttk.Checkbutton(g, text="高光斜面（Vassal 质感）", variable=self.vars["gloss"],
-                        command=lambda: self._push("gloss", bool(self.vars["gloss"].get()))
-                        ).grid(row=9, column=0, columnspan=2, sticky="w")
-
-        # --- 底部按钮
-        g = ttk.Frame(p)
-        g.pack(fill="x", pady=8)
-        ttk.Button(g, text="重置为默认", command=self.reset).pack(fill="x")
-        ttk.Label(p, text="提示：改动即时生效；导出的 PNG 可直接黏进 Vassal 模块的 images 目录。",
+        # ---- 底部按钮 --------------------------------------------------
+        foot = ttk.Frame(p)
+        foot.pack(fill="x", pady=8)
+        ttk.Button(foot, text="重置为默认", command=self.reset).pack(fill="x")
+        ttk.Label(p, text="提示：改动即时生效；左侧预览同时显示正面 / 背面 / 1:1 小样。",
                   foreground="#555", wraplength=400).pack(fill="x", pady=(6, 0))
 
     def _entry(self, parent, key):
+        if key not in self.vars:
+            self.vars[key] = tk.StringVar()
         e = ttk.Entry(parent, textvariable=self.vars[key])
         e.bind("<KeyRelease>", lambda ev, k=key: self._push(k, self.vars[k].get()))
         return e
