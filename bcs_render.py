@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 BCS 算子生成器 —— 渲染核心
 版式严格对照 BCS 系列 Unit Key (BCSV/Unit Key.png)：
@@ -247,6 +247,13 @@ class Counter:
         d.update(kw)
         return Counter(**d)
 
+
+def side_value(move_val, front_val: str) -> str:
+    """正/反面的取值规则：留空=沿用正面；"-"=这一面不画；其余=覆盖。"""
+    mv = "" if move_val is None else str(move_val).strip()
+    if mv == "-":
+        return ""
+    return mv or (front_val or "")
 
 DEF = Counter()
 
@@ -1079,13 +1086,14 @@ def render(ct: Counter, size: int = 75, ss: int = 4) -> Image.Image:
     u = px / DESIGN
     img = Image.new("RGBA", (px, px), (0, 0, 0, 0))
     # —— 正/反面：布局一致，只换数值与 AR 画法（不再压暗纱）
+    #    *_move 留空 = 沿用正面；填 "-" = 这一面不画该项；填值 = 覆盖
     if ct.side == "back":
-        ct = ct.copy(ar=ct.ar_move or ct.ar,
-                     quality=ct.quality_move or ct.quality,
-                     av=ct.av_move or ct.av,
-                     rng=ct.rng_move or ct.rng,
-                     rng2=ct.rng2_move or ct.rng2,
-                     ma=ct.ma_move or ct.ma,
+        ct = ct.copy(ar=side_value(ct.ar_move, ct.ar),
+                     quality=side_value(ct.quality_move, ct.quality),
+                     av=side_value(ct.av_move, ct.av),
+                     rng=side_value(ct.rng_move, ct.rng),
+                     rng2=side_value(ct.rng2_move, ct.rng2),
+                     ma=side_value(ct.ma_move, ct.ma),
                      move_class=ct.move_class_move or ct.move_class)
         if ct.back_ghost and ct.ar_style == "box":
             ct = ct.copy(ar_style="ghost")

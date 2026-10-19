@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 BCS 算子生成器 —— 图形界面
 左侧实时预览正面/背面，右侧参数面板；支持导出单张 PNG、成对 PNG、JSON 存档与批量导出。
@@ -227,6 +227,9 @@ class App:
                                           ("rng2_move", "移动面射程第二行")]):
             self.vars[key] = tk.StringVar()
             row(g, label, self._entry(g, key), 26 + i)
+        ttk.Label(g, text="移动面：留空 = 沿用正面；填 - = 这一面不画该项",
+                  foreground="#666", wraplength=380).grid(row=29, column=0, columnspan=2,
+                                                          sticky="w")
 
         # --- 配色
         g = group("④ 配色 · 色带")

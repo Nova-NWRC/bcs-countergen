@@ -25,7 +25,7 @@ UNITS = [
               move_class="tac", move_class_move="truck",
               hard=True, symbol="armor", bg="#A3BA68", bar_color="#6E8B3D"),
     R.Counter(kind="inf", unit_id="II/505", formation_id="10 GD", size_label="II", ar="5",
-              quality="3", ma="8", ma_move="12", quality_move="2",
+              quality="3", ma="8", ma_move="12", quality_move="2", rng_move="-",
               move_class="leg", move_class_move="truck",
               symbol="inf", bg="#F2DCB0", bar_color="#D97A20"),
     R.Counter(kind="dual", unit_id="23", formation_id="Pape", size_label="I", ar="5",
