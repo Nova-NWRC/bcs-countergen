@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 BCS 算子生成器 —— 图形界面
 左侧实时预览正面/背面，右侧参数面板；支持导出单张 PNG、成对 PNG、JSON 存档与批量导出。
@@ -221,6 +221,12 @@ class App:
                         command=lambda: self._push(
                             "back_ghost", bool(self.vars["back_ghost"].get()))
                         ).grid(row=25, column=0, columnspan=2, sticky="w")
+
+        for i, (key, label) in enumerate([("av_move", "移动面装甲值"),
+                                          ("rng_move", "移动面射程"),
+                                          ("rng2_move", "移动面射程第二行")]):
+            self.vars[key] = tk.StringVar()
+            row(g, label, self._entry(g, key), 26 + i)
 
         # --- 配色
         g = group("④ 配色 · 色带")

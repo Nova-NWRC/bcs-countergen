@@ -231,6 +231,9 @@ class Counter:
     side: str = "front"             # front 战斗面 / back 移动面（布局完全一致）
     ar_move: str = ""               # 移动面的行动值（留空=沿用 ar）
     quality_move: str = ""          # 移动面的素质值（留空=沿用 quality）
+    av_move: str = ""               # 移动面的装甲值（留空=沿用 av）
+    rng_move: str = ""              # 移动面的射程（留空=沿用 rng）
+    rng2_move: str = ""             # 移动面的射程第二行（留空=沿用 rng2）
     ma_move: str = ""               # 移动面的机动力（留空=沿用 ma）
     move_class_move: str = ""       # 移动面的移动力类型 leg/truck/tac（留空=沿用 move_class）
     back_ghost: bool = True         # 移动面是否把 AR 画成虚化样式
@@ -1079,6 +1082,9 @@ def render(ct: Counter, size: int = 75, ss: int = 4) -> Image.Image:
     if ct.side == "back":
         ct = ct.copy(ar=ct.ar_move or ct.ar,
                      quality=ct.quality_move or ct.quality,
+                     av=ct.av_move or ct.av,
+                     rng=ct.rng_move or ct.rng,
+                     rng2=ct.rng2_move or ct.rng2,
                      ma=ct.ma_move or ct.ma,
                      move_class=ct.move_class_move or ct.move_class)
         if ct.back_ghost and ct.ar_style == "box":

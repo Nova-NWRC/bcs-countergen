@@ -21,6 +21,7 @@ os.makedirs(OUT, exist_ok=True)
 UNITS = [
     R.Counter(kind="av", unit_id="I/33", formation_id="10 GD", size_label="II", ar="5",
               av="4", quality="4", rng="2", ma="16", ma_move="12", quality_move="3",
+              av_move="3", rng_move="1",
               move_class="tac", move_class_move="truck",
               hard=True, symbol="armor", bg="#A3BA68", bar_color="#6E8B3D"),
     R.Counter(kind="inf", unit_id="II/505", formation_id="10 GD", size_label="II", ar="5",
@@ -28,7 +29,7 @@ UNITS = [
               move_class="leg", move_class_move="truck",
               symbol="inf", bg="#F2DCB0", bar_color="#D97A20"),
     R.Counter(kind="dual", unit_id="23", formation_id="Pape", size_label="I", ar="5",
-              av="1", quality="5", ma="16", ma_move="12",
+              av="1", quality="5", rng="3", rng_move="2", ma="16", ma_move="12",
               move_class="truck", move_class_move="leg",
               symbol="recon", bg="#BFC0B6", bar_color="#7A3E8F"),
 ]
