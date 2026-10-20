@@ -17,7 +17,7 @@ specs = [
             bg="#A3BA68", band="#C0392B", bar_color="#6E8B3D"),
     # 装甲：美军
     Counter(kind="av", unit_id="B/37", formation_id="4 AD", size_label="II", ar="6",
-            av="3", av_class="standoff", quality="3", rng="", ma="16", move_class="tac", hard=True, symbol="tiger",
+            av="3", av_class="standoff", quality="3", rng="", ma="16", move_class="tac", hard=True, symbol="tiger", no_rebuild=True,
             bg="#B7D5EC", band="#5B8FD6", bar_color="#2F5FA8"),
     # 步兵（徒步）
     Counter(kind="inf", unit_id="II/505", formation_id="10 GD", size_label="II", ar="5",
@@ -70,7 +70,7 @@ specs = [
             bg="#C8DEEE", bar_color="#2A8C93"),
     # 图形符号 + 机动色带（DF / 老作风格）
     Counter(kind="av", unit_id="B/37", formation_id="4 AD", size_label="II", ar="6",
-            av="3", av_class="standoff", quality="3", rng="", ma="16", move_class="tac", hard=True, symbol="tiger", symbol_mode="glyph",
+            av="3", av_class="standoff", quality="3", rng="", ma="16", move_class="tac", hard=True, symbol="tiger", no_rebuild=True, symbol_mode="glyph",
             bg="#B7D5EC", band="#5B8FD6", show_band=True, bar_color="#2F5FA8"),
     # 字母代号 + 机动色带
     Counter(kind="inf", unit_id="Pio", formation_id="10 GD", size_label="I", ar="3",

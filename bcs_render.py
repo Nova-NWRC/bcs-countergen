@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 BCS 算子生成器 —— 渲染核心
 版式严格对照 BCS 系列 Unit Key (BCSV/Unit Key.png)：
@@ -198,6 +198,7 @@ class Counter:
     av: str = ""                    # Armor Value 装甲值
     av_class: str = "red"           # red / limited / standoff / light
     move_class: str = "tac"         # leg / truck / tac
+    no_rebuild: bool = False        # 不可补员/重建：素质值下加实心黄圈
     quality: str = ""               # 素质值（中轴上方）
     rng: str = "3"                  # 射程（中轴下方）
     rng2: str = ""                  # 射程第二行（1 格时留空）
@@ -594,6 +595,8 @@ L = dict(
     SP_WHEEL_R=7.0,
     SP_TEXT_H=14.2,                      # 框内每行文字墨迹高
     SP_SIGN=(37.0, 31.0, 19.0),          # 禁止标志：中心 + 半径
+    # 不可补员/重建：素质值下的实心黄圈（取自 BBC-CS-1-B_78 实测 15 格直径）
+    NR_R=7.6, NR_FILL="#FFE400", NR_RING="#3A2222",
     HQ_NUM_H=13.6,                 # HQ 数字墨迹高
     HQ_MA_SCALE=1.45,              # 激活面移动力约为炮击值的 1.45 倍（中心仍对齐）
     HQ_NAME_H=18.0,                # 番号墨迹高度（≈算子高的 0.28，落在 1/3~1/4 之间）
@@ -903,6 +906,13 @@ def draw_center_column(c: Ctx, ct: Counter, ink_value: str):
     if bar_top is not None and bar_top < L["R_Y"] + L["SM_H"] / 2 and luma(ct.bar_color) < 0.58:
         range_ink = "#FFFFFF"
     h = L["SM_H"]
+    # 「不可补员 / 不可重建」标记：素质值底下垫一枚实心黄圈（取自 BBC-CS-1-B_78 实测：
+    # 直径 ≈15 格、填充 #FFE400、深棕描边），数字改黑色以便在黄底上可读。
+    if ct.no_rebuild and ct.quality:
+        r = L["NR_R"]
+        c.ellipse((L["CX"] - r, L["Q_Y"] - r, L["CX"] + r, L["Q_Y"] + r),
+                  fill=L["NR_FILL"], outline=L["NR_RING"], width=1.8)
+        ink = "#101010"
     if ct.range_style == "chip":
         draw_range_chip(c, ct, ink_value)
         if ct.quality:

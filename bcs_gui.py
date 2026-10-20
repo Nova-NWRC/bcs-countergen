@@ -178,6 +178,7 @@ class App:
         chk(g, "assault", "突击箭头", 6, 0)
         chk(g, "hard", "Hard 黄框", 6, 2)
         chk(g, "breakthrough", "突破小三角", 7, 0, span=4)
+        chk(g, "no_rebuild", "不可补员 / 不可重建（素质值加黄圈）", 8, 0, span=4)
 
         # ---- ④ 移动面覆写（背面）---------------------------------------
         g = group("④ 移动面覆写 · 背面",
