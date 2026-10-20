@@ -241,6 +241,8 @@ class App:
         foot = ttk.Frame(p)
         foot.pack(fill="x", pady=8)
         ttk.Button(foot, text="重置为默认", command=self.reset).pack(fill="x")
+        ttk.Button(foot, text="按当前编制导出编制卡", command=self.export_chart).pack(
+            fill="x", pady=(4, 0))
         ttk.Label(p, text="提示：改动即时生效；左侧预览同时显示正面 / 背面 / 1:1 小样。",
                   foreground="#555", wraplength=400).pack(fill="x", pady=(6, 0))
 
@@ -329,6 +331,22 @@ class App:
         self.ct = R.Counter()
         self._sync_to_widgets()
         self.refresh()
+
+    def export_chart(self):
+        """按当前算子的编制信息（编制名/底色/色带/兵种符号）导出编制卡。"""
+        import bcs_chart
+        ct = self.ct
+        name = ct.formation_id or "formation"
+        symbol = ct.symbol if ct.symbol in R.SYMBOLS else "inf"
+        band = ct.bar_color if ct.bar_color not in ("", "none") else ct.band
+        chart = bcs_chart.render_chart(name=name, symbol=symbol, bg=ct.bg, band=band)
+        base = (name or "chart").replace("/", "-")
+        path = filedialog.asksaveasfilename(initialdir=OUTDIR, defaultextension=".png",
+                                            filetypes=[("PNG", "*.png")],
+                                            initialfile=f"{base}__chart.png")
+        if path:
+            chart.save(path)
+            messagebox.showinfo("完成", f"编制卡已写出\n{path}")
 
     # ------------------------------------------------------------ 刷新
     def _lazy(self, *_):

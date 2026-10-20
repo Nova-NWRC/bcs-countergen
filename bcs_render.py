@@ -26,6 +26,8 @@ FONTS = {
     "black": os.path.join(FONT_DIR, "ariblk.ttf"),       # Arial Black —— 大数值
     "impact": os.path.join(FONT_DIR, "impact.ttf"),      # Impact —— 超粗数值
     "stencil": os.path.join(FONT_DIR, "STENCIL.TTF"),    # 模板字
+    "italic": os.path.join(FONT_DIR, "ariali.ttf"),      # Arial Italic —— 编制卡的固定标签
+    "italic_b": os.path.join(FONT_DIR, "arialbi.ttf"),   # Arial Bold Italic
 }
 
 _font_cache: dict[tuple[str, int], ImageFont.FreeTypeFont] = {}

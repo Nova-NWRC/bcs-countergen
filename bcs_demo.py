@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """生成对比样张：覆盖各类型 + 各配色，用于校验版式。"""
 import os
 import sys
@@ -92,6 +92,21 @@ big = contact_sheet(specs[:6], cols=3, size=300, pad=12)
 big.save(os.path.join(OUT, "demo_sheet_300.png"))
 
 render_pair(specs[0], 150).save(os.path.join(OUT, "pair_av_150.png"))
+
+# 编制卡样张：两个编制并排（250×356 与官方卡同尺寸）
+import bcs_chart as _C
+_chart_army = {"meta": {}, "formations": {
+    "10 GD": {"bg": "#A3BA68", "band": "#E8C10C", "bar_color": "#6E8B3D", "symbol": "armor"},
+    "90 Inf Div": {"bg": "#E9D6B8", "band": "#E8C10C", "bar_color": "#A63A6B", "symbol": "inf"},
+}, "rows": []}
+_charts = [_C.chart_from_formation(_chart_army, n, size=250)
+           for n in ("10 GD", "90 Inf Div")]
+from PIL import Image as _Im  # noqa: E402
+_pad, _bg = 14, (34, 33, 31)
+_sheet = _Im.new("RGB", (250 * 2 + _pad * 3, 356 + _pad * 2), _bg)
+for _i, _im in enumerate(_charts):
+    _sheet.paste(_im, (_pad + _i * (250 + _pad), _pad), _im)
+_sheet.save(os.path.join(OUT, "formation_chart.png"))
 
 # 同时导出可直接编辑的算子库 JSON（GUI/CLI 都能载入）
 import bcs_render as _R

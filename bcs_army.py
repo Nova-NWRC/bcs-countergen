@@ -313,7 +313,7 @@ def import_csv(path: str) -> dict:
 
 # --------------------------------------------------------------------- 导出
 def export_army(army: dict, outdir: str, size: int = 75, pair: bool = True,
-                sheet: bool = True) -> dict:
+                sheet: bool = True, charts: bool = False) -> dict:
     os.makedirs(outdir, exist_ok=True)
     made, specs = [], []
     for row in army["rows"]:
@@ -340,6 +340,10 @@ def export_army(army: dict, outdir: str, size: int = 75, pair: bool = True,
     spec_path = os.path.join(outdir, "_army.json")
     save_army(army, spec_path)
     made.append(spec_path)
+    if charts:
+        import bcs_chart
+        res = bcs_chart.export_charts(army, outdir)
+        made.extend(res["files"])
     return {"files": made, "count": len(specs)}
 
 
@@ -378,6 +382,7 @@ class ArmyApp:
         ttk.Button(bar, text="↓", width=3, command=lambda: self.move_row(1)).pack(side="left", padx=2)
         ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=6)
         ttk.Button(bar, text="生成全部 PNG", command=self.export_all).pack(side="left")
+        ttk.Button(bar, text="生成编制卡", command=self.export_charts).pack(side="left", padx=(2, 0))
         ttk.Label(bar, text="尺寸").pack(side="left", padx=(8, 2))
         self.size_var = tk.IntVar(value=75)
         ttk.Combobox(bar, values=[70, 75, 94, 120, 150], width=5,
@@ -1038,9 +1043,17 @@ class ArmyApp:
             site = slug(fid) if fid else "all"
         outdir = os.path.join(OUTDIR, site) if len(self.army["formations"]) > 1 else OUTDIR
         size = int(self.size_var.get() or 75)
-        res = export_army(self.army, outdir, size=size)
+        res = export_army(self.army, outdir, size=size, charts=True)
         self.set_status(f"已生成 {res['count']} 枚算子 / {len(res['files'])} 个文件 → {outdir}")
         messagebox.showinfo("完成", f"已生成 {res['count']} 枚算子\n共 {len(res['files'])} 个文件\n\n{outdir}")
+
+    def export_charts(self):
+        """只出编制卡（每个编制一张 + 总览）。"""
+        import bcs_chart
+        outdir = os.path.join(OUTDIR, "charts")
+        res = bcs_chart.export_charts(self.army, outdir)
+        self.set_status(f"已生成 {res['count']} 张编制卡 → {outdir}")
+        messagebox.showinfo("完成", f"已生成 {res['count']} 张编制卡\n共 {len(res['files'])} 个文件\n\n{outdir}")
 
     def save_json(self):
         path = filedialog.asksaveasfilename(initialdir=OUTDIR, defaultextension=".json",
@@ -1103,8 +1116,13 @@ def main(argv=None):
         out = argv[argv.index("--out") + 1] if "--out" in argv else OUTDIR
         size = int(argv[argv.index("--size") + 1]) if "--size" in argv else 75
         army = load_army(spec)
-        res = export_army(army, out, size=size)
-        print(f"已生成 {res['count']} 枚算子 / {len(res['files'])} 个文件 → {out}")
+        res = export_army(army, out, size=size, charts="--charts" in argv)
+        extra = ""
+        if "--charts" in argv:
+            import bcs_chart
+            charts = len(army["formations"])
+            extra = f"（含 {charts} 张编制卡）"
+        print(f"已生成 {res['count']} 枚算子 / {len(res['files'])} 个文件{extra} → {out}")
         return 0
     root = tk.Tk()
     ArmyApp(root)

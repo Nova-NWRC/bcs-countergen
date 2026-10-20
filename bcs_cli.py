@@ -51,6 +51,8 @@ def main(argv=None):
     ap.add_argument("--size", type=int, default=75, help="边长像素，默认 75（Vassal 原生）")
     ap.add_argument("--pair", action="store_true", help="同时输出背面")
     ap.add_argument("--sheet", action="store_true", help="输出拼版总览")
+    ap.add_argument("--chart", action="store_true",
+                    help="额外为每个编制输出一张编制卡（Formation Chart）")
     ap.add_argument("--cols", type=int, default=6)
     ap.add_argument("--demo", action="store_true", help="生成 samples/ 样张")
     ap.add_argument("--template", action="store_true", help="打印 JSON 模板")
@@ -85,6 +87,16 @@ def main(argv=None):
             R.render(ct.copy(side="back",
                              ar_style="ghost" if ct.ar_style == "box" else ct.ar_style),
                      a.size).save(os.path.join(out, tag + "_B.png"))
+    if a.chart:
+        import bcs_chart
+        army = {"meta": {}, "formations": {}, "rows": []}
+        for ct in specs:
+            fid = ct.formation_id or "formation"
+            army["formations"].setdefault(
+                fid, {"bg": ct.bg, "band": ct.band, "bar_color": ct.bar_color,
+                      "symbol": ct.symbol})
+        made = bcs_chart.export_charts(army, os.path.join(out, "charts"))
+        print(f"已写出 {made['count']} 张编制卡 → {os.path.join(out, 'charts')}")
     print(f"已写出 {len(specs)} 枚算子 → {out}")
     return 0
 
