@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """军队编辑器（Army Editor）：表格批量编辑 + 一键出整套算子。
 
 一行一枚算子，按「编制」分组：同一个编制（formation_id）共用一个番号、一套底色与编制色带；
@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import csv
 import json
 import os
 import re
@@ -70,7 +71,7 @@ def flags_of(row: dict) -> str:
 
 
 def new_row(kind: str, formation_id: str, **kw) -> dict:
-    row = dict(kind=kind, unit_id="", formation_id=formation_id, size_label="II",
+    row = dict(kind=kind, unit_id="", formation_id=formation_id, size_label="II", symbol="",
                ar="5", av="", quality="3", rng="", ma="8",
                move_class="tac", av_class="red",
                hard=False, assault=False, no_rebuild=False, breakthrough=False,
@@ -82,7 +83,7 @@ def new_row(kind: str, formation_id: str, **kw) -> dict:
 def counter_from(row: dict, form: dict) -> R.Counter:
     """把表格行 + 编制设置落成一枚 Counter。"""
     kind = row.get("kind", "inf")
-    sym = form.get("symbol") or KIND_SYMBOL.get(kind, "inf")
+    sym = (row.get("symbol") or "").strip() or form.get("symbol") or KIND_SYMBOL.get(kind, "inf")
     ct = R.Counter(
         kind=kind,
         unit_id=str(row.get("unit_id", "") or ""),
@@ -159,6 +160,105 @@ def add_formation(army: dict, fid: str, bg: str, bar: str, symbol: str,
     army["rows"].append(new_row("inf", fid, unit_id="", symbol=None))
 
 
+
+CSV_FIELDS = ["kind", "unit_id", "formation_id", "size_label", "ar", "av", "quality",
+              "rng", "ma", "move_class", "av_class", "hard", "assault", "no_rebuild",
+              "breakthrough", "command_radius", "arty", "activation",
+              "bg", "bar_color", "symbol"]
+CSV_TEXT = ["kind", "unit_id", "formation_id", "size_label", "ar", "av", "quality",
+            "rng", "ma", "move_class", "av_class", "command_radius", "arty", "activation",
+            "symbol"]
+CSV_BOOL = ["hard", "assault", "no_rebuild", "breakthrough"]
+CSV_TRUE = {"1", "true", "yes", "y", "是", "√", "on"}
+
+
+def duplicate_formation(army: dict, src: str, dst: str, hq_id: str = "",
+                        copy_colors: bool = True, suffix: str = "") -> int:
+    """整编制复制：把 src 的所有行原样复制到 dst（含 HQ / 补给车 / 战斗单位）。
+
+    - 行的 formation_id 换成 dst；HQ 的番号可指定，未指定则沿用原来的
+    - suffix 非空时，追加到每个番号后面（例如把 "I/33" 变成 "I/33/11"）
+    - 新行紧跟在源编制的最后一行之后，方便连着看
+    """
+    if not src or not dst or src == dst:
+        return 0
+    form = formation_of(army, src)
+    new_form = formation_of(army, dst)
+    if copy_colors:
+        for k in ("bg", "band", "bar_color", "symbol"):
+            if k in form:
+                new_form[k] = form[k]
+
+    idxs = [i for i, r in enumerate(army["rows"])
+            if str(r.get("formation_id", "") or "") == src]
+    if not idxs:
+        return 0
+
+    clones = []
+    for i in idxs:
+        row = dict(army["rows"][i])
+        row["formation_id"] = dst
+        if suffix:
+            row["unit_id"] = (str(row.get("unit_id", "") or "") + suffix).strip()
+        if row.get("kind") == "hq" and hq_id:
+            row["unit_id"] = hq_id
+        clones.append(row)
+
+    at = max(idxs) + 1
+    army["rows"][at:at] = clones
+    return len(clones)
+
+
+def export_csv(army: dict, path: str) -> int:
+    """把军队导出成 CSV（utf-8-sig，Excel 直接双击不乱码）。"""
+    with open(path, "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=CSV_FIELDS, extrasaction="ignore")
+        w.writeheader()
+        for row in army["rows"]:
+            fid = str(row.get("formation_id", "") or "")
+            form = formation_of(army, fid) if fid else {}
+            out = {}
+            for k in CSV_FIELDS:
+                if k in CSV_BOOL:
+                    out[k] = 1 if row.get(k) else 0
+                elif k == "symbol":
+                    out[k] = (row.get("symbol") or "").strip() or form.get("symbol", "")
+                elif k in ("bg", "bar_color"):
+                    out[k] = form.get(k, "")
+                else:
+                    out[k] = row.get(k, "")
+            w.writerow(out)
+    return len(army["rows"])
+
+
+def import_csv(path: str) -> dict:
+    """从 CSV 读回军队；同一编制的底色/色带/符号取该编制第一行里出现的值。"""
+    army = empty_army()
+    army["meta"]["name"] = os.path.splitext(os.path.basename(path))[0]
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        have = set(reader.fieldnames or [])
+        for rec in reader:
+            kind = (rec.get("kind") or "inf").strip() or "inf"
+            fid = (rec.get("formation_id") or "").strip()
+            row = new_row(kind, fid)
+            for k in CSV_TEXT:
+                if k in have:                    # 表里有这一列 → 原样采用（空值也照抄）
+                    row[k] = (rec.get(k) or "").strip()
+            for k in CSV_BOOL:
+                row[k] = str(rec.get(k, "")).strip().lower() in CSV_TRUE
+            army["rows"].append(row)
+            if fid:
+                form = formation_of(army, fid)
+                fresh = not any(str(r.get("formation_id", "")) == fid
+                                for r in army["rows"][:-1])
+                if fresh:
+                    for k in ("bg", "bar_color", "symbol"):
+                        v = (rec.get(k) or "").strip()
+                        if v:
+                            form[k] = v
+    return army
+
 # --------------------------------------------------------------------- 导出
 def export_army(army: dict, outdir: str, size: int = 75, pair: bool = True,
                 sheet: bool = True) -> dict:
@@ -231,8 +331,12 @@ class ArmyApp:
         ttk.Combobox(bar, values=[70, 75, 94, 120, 150], width=5,
                      textvariable=self.size_var).pack(side="left")
         ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=6)
-        ttk.Button(bar, text="载入军队 JSON", command=self.load_json).pack(side="left")
-        ttk.Button(bar, text="保存军队 JSON", command=self.save_json).pack(side="left", padx=2)
+        ttk.Button(bar, text="载入 JSON", command=self.load_json).pack(side="left")
+        ttk.Button(bar, text="保存 JSON", command=self.save_json).pack(side="left", padx=2)
+        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=6)
+        ttk.Button(bar, text="复制编制…", command=self.dup_formation).pack(side="left")
+        ttk.Button(bar, text="导出 CSV", command=self.export_csv_file).pack(side="left", padx=2)
+        ttk.Button(bar, text="导入 CSV", command=self.import_csv_file).pack(side="left")
 
     # ---------------- 主体：左表格 / 右编辑
     def _build_body(self):
@@ -537,6 +641,91 @@ class ArmyApp:
             self._refresh_tree(keep=j)
             self.load_row()
 
+
+    # ---------------- 整编制复制 / CSV
+    def dup_formation(self):
+        row = self.cur()
+        src0 = str(row.get("formation_id", "") or "") if row else ""
+        if not self.army["formations"]:
+            messagebox.showinfo("提示", "还没有编制可复制。")
+            return
+
+        dlg = tk.Toplevel(self.root)
+        dlg.title("整编制复制")
+        dlg.transient(self.root)
+        dlg.grab_set()
+        f = ttk.Frame(dlg, padding=12)
+        f.pack(fill="both", expand=True)
+
+        v = {k: tk.StringVar() for k in ("src", "dst", "hq", "suffix")}
+        v["src"].set(src0 or sorted(self.army["formations"])[0])
+        v["dst"].set((src0 or "New") + " (copy)")
+        copy_colors = tk.BooleanVar(value=True)
+
+        ttk.Label(f, text="源编制", width=10, anchor="e").grid(row=0, column=0, sticky="e", pady=2)
+        cb_src = ttk.Combobox(f, textvariable=v["src"], state="readonly",
+                              values=sorted(self.army["formations"]))
+        cb_src.grid(row=0, column=1, sticky="we", pady=2)
+        ttk.Label(f, text="新编制番号", width=10, anchor="e").grid(row=1, column=0, sticky="e", pady=2)
+        ttk.Entry(f, textvariable=v["dst"]).grid(row=1, column=1, sticky="we", pady=2)
+        ttk.Label(f, text="新 HQ 番号", width=10, anchor="e").grid(row=2, column=0, sticky="e", pady=2)
+        ttk.Entry(f, textvariable=v["hq"]).grid(row=2, column=1, sticky="we", pady=2)
+        ttk.Label(f, text="番号后缀", width=10, anchor="e").grid(row=3, column=0, sticky="e", pady=2)
+        ttk.Entry(f, textvariable=v["suffix"]).grid(row=3, column=1, sticky="we", pady=2)
+        ttk.Checkbutton(f, text="沿用源编制的底色 / 色带 / 符号", variable=copy_colors
+                        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        ttk.Label(f, text="提示：HQ 番号留空则沿用原值；后缀会拼在每行番号之后（如 /11）。",
+                  foreground="#666", wraplength=320).grid(row=5, column=0, columnspan=2,
+                                                          sticky="w", pady=(6, 0))
+        f.columnconfigure(1, weight=1)
+
+        def ok():
+            src, dst = v["src"].get().strip(), v["dst"].get().strip()
+            if not dst:
+                messagebox.showwarning("提示", "新编制番号不能为空。", parent=dlg)
+                return
+            n = duplicate_formation(self.army, src, dst, v["hq"].get().strip(),
+                                    bool(copy_colors.get()), v["suffix"].get().strip())
+            dlg.destroy()
+            if n:
+                self._refresh_tree(keep=len(self.army["rows"]) - 1)
+                self.set_status(f"已复制编制「{src}」→「{dst}」，共 {n} 行")
+            else:
+                messagebox.showinfo("提示", "没有可复制的行（源编制为空？）")
+
+        ttk.Button(f, text="复制", command=ok).grid(row=6, column=0, columnspan=2,
+                                                   sticky="we", pady=(10, 0))
+
+    def export_csv_file(self):
+        os.makedirs(OUTDIR, exist_ok=True)
+        path = filedialog.asksaveasfilename(initialdir=OUTDIR, defaultextension=".csv",
+                                            filetypes=[("CSV", "*.csv")],
+                                            initialfile="army.csv")
+        if not path:
+            return
+        n = export_csv(self.army, path)
+        self.set_status(f"已导出 {n} 行 → {path}")
+        messagebox.showinfo("完成", f"已导出 {n} 行到\n{path}\n\n可用 Excel 直接打开（UTF-8 BOM）。")
+
+    def import_csv_file(self):
+        path = filedialog.askopenfilename(initialdir=OUTDIR,
+                                          filetypes=[("CSV", "*.csv")])
+        if not path:
+            return
+        try:
+            army = import_csv(path)
+        except Exception as exc:
+            messagebox.showerror("导入失败", str(exc))
+            return
+        if not army["rows"]:
+            messagebox.showwarning("提示", "这个 CSV 里没有可用的行。")
+            return
+        self.army = army
+        self._refresh_tree()
+        self._select_first()
+        self.set_status(f"已导入 {len(army['rows'])} 行 / "
+                        f"{len(army['formations'])} 个编制：{path}")
+
     # ---------------- 编制
     def new_formation(self):
         dlg = tk.Toplevel(self.root)
@@ -689,6 +878,29 @@ class ArmyApp:
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+
+    def _arg(flag, default=None):
+        return argv[argv.index(flag) + 1] if flag in argv else default
+
+    # CSV 导出（从现有军队 json 或示例军队出发）
+    if "--export-csv" in argv:
+        src = _arg("--spec", SPEC if os.path.exists(SPEC) else None)
+        dst = _arg("--export-csv")
+        army = load_army(src) if src else empty_army()
+        n = export_csv(army, dst)
+        print(f"已导出 {n} 行 → {dst}")
+        return 0
+
+    # CSV 导入后直接出图
+    if "--import-csv" in argv:
+        army = import_csv(_arg("--import-csv"))
+        out = _arg("--out", OUTDIR)
+        size = int(_arg("--size", 75))
+        res = export_army(army, out, size=size)
+        print(f"已导入 {len(army['rows'])} 行；生成 {res['count']} 枚算子 / "
+              f"{len(res['files'])} 个文件 → {out}")
+        return 0
+
     if "--spec" in argv:
         spec = argv[argv.index("--spec") + 1]
         out = argv[argv.index("--out") + 1] if "--out" in argv else OUTDIR

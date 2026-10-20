@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """生成一份“示例军队”：两个编制，每个编制 = HQ + 补给车 + 若干战斗单位。"""
 import os
 import sys
@@ -25,15 +25,15 @@ rows = army["rows"]
 rows[0].update(ar="10", size_label="XX", command_radius="10", arty="4", ma="8",
                activation="4", quality="4")
 rows[1].update(unit_id="10 GD Sup")
-rows[2].update(unit_id="I/33", size_label="II", ar="5", av="4", quality="4",
+rows[2].update(unit_id="I/33", size_label="II", ar="5", av="4", quality="4", symbol="armor",
                rng="2", ma="16", move_class="tac", av_class="red", hard=True)
-army["rows"].append(A.new_row("av", "10 GD", unit_id="II/33", size_label="II", ar="5",
+army["rows"].append(A.new_row("av", "10 GD", unit_id="II/33", size_label="II", ar="5", symbol="tiger",
                               av="3", quality="3", rng="2", ma="12",
                               move_class="truck", av_class="standoff", hard=True))
-army["rows"].append(A.new_row("inf", "10 GD", unit_id="I/505", size_label="II", ar="5",
+army["rows"].append(A.new_row("inf", "10 GD", unit_id="I/505", size_label="II", ar="5", symbol="inf",
                               quality="3", rng="", ma="8", move_class="leg",
                               assault=True, no_rebuild=True))
-army["rows"].append(A.new_row("support", "10 GD", unit_id="Spt 10 GD", size_label="II",
+army["rows"].append(A.new_row("support", "10 GD", unit_id="Spt 10 GD", size_label="II", symbol="inf",
                               ar="6", av="", quality="", rng="", ma=""))
 
 # ---- 编制 2：90 Inf Div
@@ -43,11 +43,11 @@ b = len(rows) - 3
 rows[b].update(ar="10", size_label="XX", command_radius="8", arty="3", ma="8",
                activation="4", quality="3")
 rows[b + 1].update(unit_id="90 ID Sup")
-rows[b + 2].update(unit_id="1/90", size_label="III", ar="4", quality="2",
+rows[b + 2].update(unit_id="1/90", size_label="III", ar="4", quality="2", symbol="inf",
                    rng="", ma="8", move_class="leg")
-army["rows"].append(A.new_row("inf", "90 Inf Div", unit_id="2/90", size_label="III",
+army["rows"].append(A.new_row("inf", "90 Inf Div", unit_id="2/90", symbol="inf", size_label="III",
                               ar="4", quality="2", rng="", ma="8", move_class="leg"))
-army["rows"].append(A.new_row("inf", "90 Inf Div", unit_id="3/90", size_label="III",
+army["rows"].append(A.new_row("inf", "90 Inf Div", unit_id="3/90", symbol="inf", size_label="III",
                               ar="3", quality="2", rng="", ma="12",
                               move_class="truck", no_rebuild=True))
 
