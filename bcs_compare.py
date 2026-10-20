@@ -1,11 +1,27 @@
-"""把 75px 生成算子与真实算子并排放大对比，检验版式还原度。"""
-import os, sys
+# -*- coding: utf-8 -*-
+"""把 75px 生成算子与真实算子并排放大对比，检验版式还原度。
+
+官方扫描件是商业美术资源，只在本机存在：本脚本的输出写到 out/（gitignored），
+不进仓库。素材根目录默认取本仓库的上一级（即 BCSV/），可用 BCSV_ROOT 覆盖。
+"""
+import os
+import sys
+
 from PIL import Image
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import bcs_render as R
+import bcs_render as R  # noqa: E402
+
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "samples")
+OUT = os.path.join(HERE, "out")
+BCSV = os.environ.get("BCSV_ROOT") or os.path.dirname(HERE)
+COUNTER = os.path.join(BCSV, "Counter")
 os.makedirs(OUT, exist_ok=True)
 
 mine = [
@@ -20,10 +36,18 @@ mine = [
               bg="#BFC0B6", band="#8FA8C8", bar_color="#3A5C8C"),
 ]
 real = [
-    r'F:\DSH_PzC_BCS\BCSV\Counter\DF\DF R03 C05.png',
-    r'F:\DSH_PzC_BCS\BCSV\Counter\LB\CS-1-F_0.png',
-    r'F:\DSH_PzC_BCS\BCSV\Counter\PLS\BCS-PLS-1-F_158.png',
+    os.path.join(COUNTER, "DF", "DF R03 C05.png"),
+    os.path.join(COUNTER, "LB", "CS-1-F_0.png"),
+    os.path.join(COUNTER, "PLS", "BCS-PLS-1-F_158.png"),
 ]
+
+missing = [p for p in real if not os.path.exists(p)]
+if missing:
+    print("跳过：本机没有这些官方扫描件（商业素材，不随仓库分发）")
+    for p in missing:
+        print("  缺", p)
+    print("可用 BCSV_ROOT 指向素材根目录后重跑")
+    sys.exit(0)
 
 S = 6
 cell = 75 * S

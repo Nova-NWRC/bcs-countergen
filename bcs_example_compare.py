@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-"""用用户框选示例的实测数据复刻同样算子，并排对比版式（上=生成器，下=Example 原图）。"""
+"""用用户框选示例的实测数据复刻同样算子，并排对比版式（上=生成器，下=Example 原图）。
+
+官方扫描件是商业美术资源，只在本机存在：输出写到 out/（gitignored），不进仓库。
+素材根目录默认取本仓库的上一级（即 BCSV/），可用 BCSV_ROOT 覆盖。
+"""
 import os
 import sys
 
@@ -8,9 +12,16 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bcs_render as R  # noqa: E402
 
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 HERE = os.path.dirname(os.path.abspath(__file__))
-EX = r"F:\DSH_PzC_BCS\BCSV\Example"
-OUT = os.path.join(HERE, "samples")
+BCSV = os.environ.get("BCSV_ROOT") or os.path.dirname(HERE)
+EX = os.path.join(BCSV, "Example")
+OUT = os.path.join(HERE, "out")
 os.makedirs(OUT, exist_ok=True)
 
 
@@ -35,6 +46,14 @@ CASES = [
                            ar="6", av="3", quality="2", rng="", ma="", hard=True, symbol="oval",
                            symbol_mode="glyph", assault=False)),
 ]
+
+missing = [n for n, _ in CASES if not os.path.exists(os.path.join(EX, n))]
+if missing:
+    print("跳过：本机没有这些示例扫描件（商业素材，不随仓库分发）")
+    for n in missing:
+        print("  缺", os.path.join(EX, n))
+    print("可用 BCSV_ROOT 指向素材根目录后重跑")
+    sys.exit(0)
 
 S = 7
 cell = 75 * S

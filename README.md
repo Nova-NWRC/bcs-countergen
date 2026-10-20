@@ -1,4 +1,4 @@
-﻿# BCS 算子生成器（CounterGen）
+# BCS 算子生成器（CounterGen）
 
 一个给 **Battalion Combat Series（BCS）** 自制算子的桌面小工具：按官方 Unit Key 与真实算子实测版式绘制，
 支持战斗单位、指挥部、支援单位、补给车、辎重、标记算子，双面（战斗面/移动面、正常面/已激活面、正常面/失常面），
@@ -39,13 +39,13 @@ python bcs_demo.py                                                       # 生�
 
 **指挥部 HQ：正常面 / 已激活面**
 
-![HQ 双面](samples/hq_compare.png)
+![HQ 双面](samples/hq_sides.png)
 
 **支援单位（Support 水印）与补给车（正常 / 失常）**
 
 ![支援单位](samples/support_units.png)
 
-![补给车](samples/supply_truck.png)
+![补给车](samples/supply_sides.png)
 
 **移动力 3 类（Leg/Truck/TAC）与装甲值 4 类（Red/Limited/Stand Off/Light）**
 
@@ -64,8 +64,9 @@ CounterGen/
 ├─ bcs_cli.py        命令行 / 批量
 ├─ bcs_army.py       军队编辑器（表格批量编辑 / 一键出整套）
 ├─ bcs_app.py        打包入口
-├─ bcs_*.py          样张与校验脚本（9 个 verify + 6 个 sheet）
-├─ samples/          样张 PNG + units.json 示例库
+├─ bcs_*.py          样张与校验脚本（11 个 verify + 12 个样张脚本）
+├─ samples/          样张 PNG + units.json 示例库（全部由本项目渲染）
+├─ out/              本机输出目录（对照图 / 批量出图，不入库）
 ├─ 启动生成器.bat / 启动军队编辑器.bat / 批量导出.bat / 构建EXE.bat
 ├─ 使用指南.md       完整说明书
 ├─ README_技术速查.md 版式与字段速查
@@ -82,5 +83,10 @@ CounterGen/
 
 代码以 **MIT** 发布，详见 [LICENSE](LICENSE)。
 
-仓库内**不含**任何 MMP / The Gamers 的商业美术资源、Vassal 模块文件或规则书原文；
+仓库内的样张图（`samples/*.png`）全部由本项目的渲染代码生成，不含任何 MMP / The Gamers
+的商业美术资源、Vassal 模块文件或规则书原文。
+
 `Counter/`、`Unit Key.png`、`Example/`、`HQ Eg/` 等游戏素材需自备合法副本，本项目只提供绘制代码与版式实现。
+`bcs_compare.py`、`bcs_example_compare.py`、`bcs_hq_sheet.py`、`bcs_norebuild_sheet.py`、`bcs_supply_sheet.py`
+可以拿本机素材做逐格对照，但对照图只写到 `out/`（已在 `.gitignore` 内），不随仓库分发；
+素材缺省时这些脚本会打印提示并跳过对照。

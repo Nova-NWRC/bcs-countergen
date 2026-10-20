@@ -94,7 +94,7 @@
 
 `python bcs_verify_values.py` 量左右大数值的像素包围盒（上沿/下沿/高度/中心），`python bcs_verify_center.py` 量中轴列的字高与总高，`python bcs_verify_ids.py` 量左右番号/编制的字号与上下端；三者都会打印判定并输出带标尺的对照图（`samples/value_symmetry.png`、`center_symmetry.png`、`id_symmetry.png`）。
 
-跑 `python bcs_example_compare.py` 生成 `samples/refit_compare.png`：上排是生成器按同样数据复刻的算子，下排是 Example 原图，逐格对齐检查。
+跑 `python bcs_example_compare.py` 生成 `out/refit_compare.png`（本机素材、不入库）：上排是生成器按同样数据复刻的算子，下排是 Example 原图，逐格对齐检查。
 
 ## 二、启动
 
