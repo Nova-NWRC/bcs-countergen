@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """军队编辑器（Army Editor）：表格批量编辑 + 一键出整套算子。
 
 一行一枚算子，按「编制」分组：同一个编制（formation_id）共用一个番号、一套底色与编制色带；
@@ -28,11 +28,14 @@ for _s in (sys.stdout, sys.stderr):
         pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-BASE = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else HERE
+FROZEN = getattr(sys, "frozen", False)
+RES = getattr(sys, "_MEIPASS", HERE)                    # 打包后随 exe 解包的数据目录
+BASE = os.path.dirname(sys.executable) if FROZEN else HERE
 OUTDIR = os.path.join(BASE, "out", "army")
-SPEC = os.path.join(BASE, "samples", "army_demo.json")
+SPEC = os.path.join(RES, "samples", "army_demo.json")    # 示例编制：跟着 exe 的数据走
 
-TEXT_COLS = ("unit_id", "formation_id", "size_label", "ar", "av", "quality", "rng", "ma")
+TEXT_COLS = ("unit_id", "formation_id", "size_label", "ar", "av", "quality", "rng", "rng2",
+             "ma")
 COLUMNS = [
     ("kind", "类型", 82),
     ("unit_id", "番号", 84),
@@ -42,11 +45,38 @@ COLUMNS = [
     ("av", "AV", 38),
     ("quality", "素质", 42),
     ("rng", "射程", 42),
+    ("rng2", "射程2", 44),
     ("ma", "MA", 40),
     ("move_class", "移动力", 58),
     ("av_class", "装甲类", 62),
+    ("side", "移动面", 96),
     ("flags", "标记", 74),
 ]
+
+# 行里能存的全部字段：与 render.Counter 一一对应，缺省值与 Counter 保持一致
+ROW_TEXT_KEYS = ("kind", "unit_id", "formation_id", "size_label", "ar", "av",
+                 "quality", "rng", "rng2", "ma", "move_class", "av_class",
+                 "command_radius", "arty", "activation", "steps", "name",
+                 "symbol_text", "symbol_letters", "symbol_mode",
+                 "band", "bar_pos", "bar_thickness", "ink", "value_ink",
+                 "support_label", "ar_style", "range_style", "note",
+                 # 移动面覆盖：留空 = 沿用正面，"-" = 这一面不画该项
+                 "ar_move", "quality_move", "av_move", "rng_move", "rng2_move",
+                 "ma_move", "move_class_move")
+ROW_BOOL_KEYS = ("hard", "assault", "no_rebuild", "breakthrough", "gloss",
+                 "hq_box_tint", "show_band", "support_values", "back_ghost")
+ROW_BOOL_ON = {"gloss", "hq_box_tint", "back_ghost"}   # Counter 里默认 True 的几项
+# 单行可以覆盖的「编制级」属性：留空 = 用编制的值
+ROW_EXTRA_KEYS = ("symbol",)
+
+SIDE_FIELDS = ("ar_move", "quality_move", "av_move", "rng_move", "rng2_move",
+               "ma_move", "move_class_move")
+SIDE_SHORT = {"ar_move": "AR", "quality_move": "质", "av_move": "AV",
+              "rng_move": "射", "rng2_move": "射2", "ma_move": "MA",
+              "move_class_move": "移"}
+# 留空时落成 Counter 的合法默认值，否则渲染会走到不该走的分支
+_TEXT_FALLBACK = {"move_class": "tac", "av_class": "red", "ar_style": "box",
+                  "range_style": "plain", "bar_pos": "bottom"}
 
 KIND_SYMBOL = {"av": "armor", "dual": "armor", "inf": "inf", "hq": "inf",
                "supply": "inf", "support": "inf", "train": "train", "marker": "none"}
@@ -72,45 +102,70 @@ def flags_of(row: dict) -> str:
 
 def new_row(kind: str, formation_id: str, **kw) -> dict:
     row = dict(kind=kind, unit_id="", formation_id=formation_id, size_label="II", symbol="",
-               ar="5", av="", quality="3", rng="", ma="8",
+               ar="5", av="", quality="3", rng="", rng2="", ma="8",
                move_class="tac", av_class="red",
                hard=False, assault=False, no_rebuild=False, breakthrough=False,
-               command_radius="", arty="", activation="")
+               command_radius="", arty="", activation="", steps="", name="",
+               symbol_text="", symbol_letters="", symbol_mode="",
+               band="", bar_pos="", bar_thickness="",
+               ink="", value_ink="", gloss=True, hq_box_tint=True, show_band=False,
+               support_label="", support_values=False,
+               ar_style="", range_style="", note="",
+               ar_move="", quality_move="", av_move="", rng_move="", rng2_move="",
+               ma_move="", move_class_move="", back_ghost=True)
     row.update(kw)
     return row
 
 
+def _text(row: dict, key: str, default: str = "") -> str:
+    v = row.get(key, None)
+    return default if v is None else str(v)
+
+
+def _num(row: dict, key: str, default: float) -> float:
+    try:
+        return float(str(row.get(key, "") or "").strip())
+    except Exception:
+        return default
+
+
+def _flag(row: dict, key: str, default: bool = False) -> bool:
+    v = row.get(key, None)
+    return default if v is None else bool(v)
+
+
+def side_note(row: dict) -> str:
+    """「移动面」列摘要：只列真正被覆盖的项。"""
+    out = []
+    for k in SIDE_FIELDS:
+        v = _text(row, k).strip()
+        if v:
+            out.append(f"{SIDE_SHORT[k]}{'无' if v == '-' else v}")
+    if not _flag(row, "back_ghost", True):
+        out.append("AR实")
+    return " ".join(out)
+
+
 def counter_from(row: dict, form: dict) -> R.Counter:
-    """把表格行 + 编制设置落成一枚 Counter。"""
+    """把表格行 + 编制设置落成一枚 Counter（正反面差异交给 render 处理）。"""
     kind = row.get("kind", "inf")
-    sym = (row.get("symbol") or "").strip() or form.get("symbol") or KIND_SYMBOL.get(kind, "inf")
-    ct = R.Counter(
-        kind=kind,
-        unit_id=str(row.get("unit_id", "") or ""),
-        formation_id=str(row.get("formation_id", "") or ""),
-        size_label=str(row.get("size_label", "") or ""),
-        ar=str(row.get("ar", "") or ""),
-        av=str(row.get("av", "") or ""),
-        quality=str(row.get("quality", "") or ""),
-        rng=str(row.get("rng", "") or ""),
-        ma=str(row.get("ma", "") or ""),
-        move_class=row.get("move_class") or "tac",
-        av_class=row.get("av_class") or "red",
-        symbol=sym,
-        symbol_mode="glyph" if kind in ("hq",) else "letter",
-        bg=form.get("bg", "#A3BA68"),
-        band=form.get("band", "#E8C10C"),
-        bar_color=form.get("bar_color", "#6E8B3D"),
-        show_band=False,
-        command_radius=str(row.get("command_radius", "") or ""),
-        arty=str(row.get("arty", "") or ""),
-        activation=str(row.get("activation", "") or ""),
-        no_rebuild=bool(row.get("no_rebuild")),
-        hard=bool(row.get("hard")),
-        assault=bool(row.get("assault")),
-        breakthrough=bool(row.get("breakthrough")),
-    )
-    if kind == "supply":
+    sym = (_text(row, "symbol").strip() or form.get("symbol")
+           or KIND_SYMBOL.get(kind, "inf"))
+    kw = {k: _text(row, k) for k in ROW_TEXT_KEYS}
+    for k, v in _TEXT_FALLBACK.items():
+        if not kw[k]:
+            kw[k] = v
+    for k in ROW_BOOL_KEYS:
+        kw[k] = _flag(row, k, k in ROW_BOOL_ON)
+    kw["symbol"] = sym
+    kw["symbol_mode"] = kw["symbol_mode"] or ("glyph" if kind == "hq" else "letter")
+    kw["bg"] = form.get("bg", "#A3BA68")
+    kw["band"] = kw["band"] or form.get("band", "#E8C10C")
+    kw["bar_color"] = form.get("bar_color", "#6E8B3D")
+    kw["bar_thickness"] = _num(row, "bar_thickness", 15.0)
+    kw["support_label"] = kw["support_label"] or "Support"
+    ct = R.Counter(**kw)
+    if kind == "supply" and not _text(row, "bar_pos"):
         ct = ct.copy(bar_pos="none")
     return ct
 
@@ -161,14 +216,10 @@ def add_formation(army: dict, fid: str, bg: str, bar: str, symbol: str,
 
 
 
-CSV_FIELDS = ["kind", "unit_id", "formation_id", "size_label", "ar", "av", "quality",
-              "rng", "ma", "move_class", "av_class", "hard", "assault", "no_rebuild",
-              "breakthrough", "command_radius", "arty", "activation",
-              "bg", "bar_color", "symbol"]
-CSV_TEXT = ["kind", "unit_id", "formation_id", "size_label", "ar", "av", "quality",
-            "rng", "ma", "move_class", "av_class", "command_radius", "arty", "activation",
-            "symbol"]
-CSV_BOOL = ["hard", "assault", "no_rebuild", "breakthrough"]
+CSV_BOOL = ["hard", "assault", "no_rebuild", "breakthrough", "gloss", "hq_box_tint",
+            "show_band", "support_values", "back_ghost"]
+CSV_TEXT = [k for k in ROW_TEXT_KEYS if k not in CSV_BOOL] + ["symbol"]
+CSV_FIELDS = CSV_TEXT + CSV_BOOL + ["bg", "bar_color"]
 CSV_TRUE = {"1", "true", "yes", "y", "是", "√", "on"}
 
 
@@ -220,7 +271,7 @@ def export_csv(army: dict, path: str) -> int:
             out = {}
             for k in CSV_FIELDS:
                 if k in CSV_BOOL:
-                    out[k] = 1 if row.get(k) else 0
+                    out[k] = 1 if _flag(row, k, k in ROW_BOOL_ON) else 0
                 elif k == "symbol":
                     out[k] = (row.get("symbol") or "").strip() or form.get("symbol", "")
                 elif k in ("bg", "bar_color"):
@@ -246,7 +297,8 @@ def import_csv(path: str) -> dict:
                 if k in have:                    # 表里有这一列 → 原样采用（空值也照抄）
                     row[k] = (rec.get(k) or "").strip()
             for k in CSV_BOOL:
-                row[k] = str(rec.get(k, "")).strip().lower() in CSV_TRUE
+                if k in have:                    # 列不存在时保留 new_row 的缺省值
+                    row[k] = str(rec.get(k, "")).strip().lower() in CSV_TRUE
             army["rows"].append(row)
             if fid:
                 form = formation_of(army, fid)
@@ -375,73 +427,155 @@ class ArmyApp:
                   padding=(10, 4)).pack(fill="x")
 
     def _build_form(self, parent):
-        box = ttk.LabelFrame(parent, text="行属性", padding=6)
-        box.pack(fill="x")
+        nb = ttk.Notebook(parent)
+        nb.pack(fill="x")
+        self.nb = nb
+        tab_basic = ttk.Frame(nb, padding=6)
+        tab_side = ttk.Frame(nb, padding=6)
+        tab_adv = ttk.Frame(nb, padding=6)
+        nb.add(tab_basic, text="基本")
+        nb.add(tab_side, text="移动面")
+        nb.add(tab_adv, text="高级")
 
-        def row(widget, r, label, col=0):
-            ttk.Label(box, text=label, width=8, anchor="e").grid(
+        self.v = {k: tk.StringVar() for k in ROW_TEXT_KEYS + ROW_EXTRA_KEYS}
+        self.b = {k: tk.BooleanVar() for k in ROW_BOOL_KEYS}
+        self.sw = {}
+
+        def cell(box, r, text, widget, col=0):
+            ttk.Label(box, text=text, width=7, anchor="e").grid(
                 row=r, column=col * 2, sticky="e", padx=(0, 4), pady=1)
             widget.grid(row=r, column=col * 2 + 1, sticky="we", pady=1)
             box.columnconfigure(col * 2 + 1, weight=1)
 
-        self.v = {k: tk.StringVar() for k in
-                  ("kind", "unit_id", "formation_id", "size_label", "ar", "av",
-                   "quality", "rng", "ma", "move_class", "av_class",
-                   "command_radius", "arty", "activation")}
-        self.b = {k: tk.BooleanVar() for k in
-                  ("hard", "assault", "no_rebuild", "breakthrough")}
+        def entry(box, r, key, text, col=0, width=8):
+            e = ttk.Entry(box, textvariable=self.v[key], width=width)
+            cell(box, r, text, e, col)
+            e.bind("<KeyRelease>", lambda ev, k=key: self.push(k))
+            return e
 
-        cb_kind = ttk.Combobox(box, textvariable=self.v["kind"], state="readonly",
+        cb_kind = ttk.Combobox(tab_basic, textvariable=self.v["kind"], state="readonly",
                                values=[k for k, _ in R.KINDS], width=10)
-        row(cb_kind, 0, "类型")
+        cell(tab_basic, 0, "类型", cb_kind)
         cb_kind.bind("<<ComboboxSelected>>", lambda e: self.push("kind"))
 
-        e_unit = ttk.Entry(box, textvariable=self.v["unit_id"])
-        row(e_unit, 1, "番号")
+        cb_row_sym = ttk.Combobox(tab_basic, textvariable=self.v["symbol"], state="readonly",
+                                  values=[""] + [k for k, _ in R.SYMBOLS], width=10)
+        cell(tab_basic, 0, "符号", cb_row_sym, 1)
+        cb_row_sym.bind("<<ComboboxSelected>>", lambda e: self.push("symbol"))
+
+        e_unit = ttk.Entry(tab_basic, textvariable=self.v["unit_id"])
+        cell(tab_basic, 1, "番号", e_unit)
         e_unit.bind("<KeyRelease>", lambda e: self.push("unit_id"))
 
-        cb_form = ttk.Combobox(box, textvariable=self.v["formation_id"], width=10,
+        cb_form = ttk.Combobox(tab_basic, textvariable=self.v["formation_id"], width=10,
                                values=[])
         self.cb_form = cb_form
-        row(cb_form, 2, "编制")
+        cell(tab_basic, 2, "编制", cb_form)
         cb_form.bind("<<ComboboxSelected>>", lambda e: self.push("formation_id"))
         cb_form.bind("<KeyRelease>", lambda e: self.push("formation_id"))
 
-        cb_size = ttk.Combobox(box, textvariable=self.v["size_label"],
+        cb_size = ttk.Combobox(tab_basic, textvariable=self.v["size_label"],
                                values=[k for k, _ in R.SIZE_PRESETS], width=10)
-        row(cb_size, 3, "规模")
+        cell(tab_basic, 3, "规模", cb_size)
         cb_size.bind("<<ComboboxSelected>>", lambda e: self.push("size_label"))
         cb_size.bind("<KeyRelease>", lambda e: self.push("size_label"))
 
-        for i, (key, label) in enumerate((("ar", "AR"), ("av", "AV"),
-                                          ("quality", "素质"), ("rng", "射程"),
-                                          ("ma", "MA"))):
-            e = ttk.Entry(box, textvariable=self.v[key], width=8)
-            row(e, 4 + i, label)
-            e.bind("<KeyRelease>", lambda ev, k=key: self.push(k))
+        for i, (key, text) in enumerate((("ar", "AR"), ("av", "AV"), ("quality", "素质"),
+                                         ("rng", "射程"), ("rng2", "射程2"), ("ma", "MA"))):
+            entry(tab_basic, 4 + i % 3, key, text, i // 3)
 
-        cb_mc = ttk.Combobox(box, textvariable=self.v["move_class"], state="readonly",
+        cb_mc = ttk.Combobox(tab_basic, textvariable=self.v["move_class"], state="readonly",
                              values=["leg", "truck", "tac"], width=10)
-        row(cb_mc, 9, "移动力")
+        cell(tab_basic, 7, "移动力", cb_mc)
         cb_mc.bind("<<ComboboxSelected>>", lambda e: self.push("move_class"))
 
-        cb_ac = ttk.Combobox(box, textvariable=self.v["av_class"], state="readonly",
+        cb_ac = ttk.Combobox(tab_basic, textvariable=self.v["av_class"], state="readonly",
                              values=["red", "limited", "standoff", "light"], width=10)
-        row(cb_ac, 10, "装甲类")
+        cell(tab_basic, 7, "装甲类", cb_ac, 1)
         cb_ac.bind("<<ComboboxSelected>>", lambda e: self.push("av_class"))
 
-        for i, (key, label) in enumerate((("hard", "Hard 黄框"), ("assault", "突击箭头"),
-                                          ("no_rebuild", "不可重建"), ("breakthrough", "突破"))):
-            ttk.Checkbutton(box, text=label, variable=self.b[key],
+        for i, (key, text) in enumerate((("hard", "Hard 黄框"), ("assault", "突击箭头"),
+                                         ("no_rebuild", "不可重建"), ("breakthrough", "突破"))):
+            ttk.Checkbutton(tab_basic, text=text, variable=self.b[key],
                             command=lambda k=key: self.push_flag(k)
-                            ).grid(row=11 + i // 2, column=(i % 2) * 2,
+                            ).grid(row=8 + i // 2, column=(i % 2) * 2,
                                    columnspan=2, sticky="w")
 
-        for i, (key, label) in enumerate((("command_radius", "指挥半径"),
-                                          ("arty", "炮兵点数"), ("activation", "激活骰点"))):
-            e = ttk.Entry(box, textvariable=self.v[key], width=8)
-            row(e, 13 + i, label)
-            e.bind("<KeyRelease>", lambda ev, k=key: self.push(k))
+        for i, (key, text) in enumerate((("command_radius", "指挥半径"),
+                                         ("arty", "炮兵点数"), ("activation", "激活骰点"))):
+            entry(tab_basic, 10 + i, key, text)
+
+        # ---- 移动面：只填需要与正面不同的项
+        ttk.Label(tab_side, text="留空 = 沿用正面；填 - = 这一面不画该项。",
+                  foreground="#666").grid(row=0, column=0, columnspan=4, sticky="w")
+        for i, (key, text) in enumerate((("ar_move", "AR"), ("quality_move", "素质"),
+                                         ("av_move", "AV"), ("rng_move", "射程"),
+                                         ("rng2_move", "射程2"), ("ma_move", "MA"))):
+            entry(tab_side, 1 + i // 2, key, text, i % 2)
+
+        cb_mcm = ttk.Combobox(tab_side, textvariable=self.v["move_class_move"],
+                              state="readonly", values=["", "leg", "truck", "tac"],
+                              width=10)
+        cell(tab_side, 4, "移动力", cb_mcm)
+        cb_mcm.bind("<<ComboboxSelected>>", lambda e: self.push("move_class_move"))
+
+        ttk.Checkbutton(tab_side, text="反面 AR 虚化", variable=self.b["back_ghost"],
+                        command=lambda: self.push_flag("back_ghost")
+                        ).grid(row=5, column=0, columnspan=4, sticky="w")
+
+        # ---- 高级：字号、配色、符号等单算子编辑器的其余选项
+        adv = (("name", "大字名"), ("steps", "剩余步数"), ("symbol_text", "符号文字"),
+               ("symbol_letters", "自定义字母"), ("support_label", "支援字样"))
+        for i, (key, text) in enumerate(adv):
+            entry(tab_adv, i // 2, key, text, i % 2, width=11)
+
+        for i, (key, text, vals) in enumerate((
+                ("symbol_mode", "符号模式", ["", "letter", "glyph"]),
+                ("bar_pos", "色带位置", ["", "top", "bottom", "left", "right", "none"]),
+                ("ar_style", "AR画法", ["", "box", "disc", "ghost", "none"]),
+                ("range_style", "射程画法", ["", "plain", "chip"]))):
+            cb = ttk.Combobox(tab_adv, textvariable=self.v[key], state="readonly",
+                              values=vals, width=11)
+            cell(tab_adv, 3 + i // 2, text, cb, i % 2)
+            cb.bind("<<ComboboxSelected>>", lambda e, k=key: self.push(k))
+
+        for i, (key, text) in enumerate((("band", "机动色带"), ("ink", "主文字色"),
+                                         ("value_ink", "数值色"))):
+            sw = tk.Button(tab_adv, text="  ", width=5,
+                           command=lambda k=key: self.pick_row_color(k))
+            cell(tab_adv, 5 + i, text, sw, 0)
+            self.sw[key] = sw
+            ttk.Button(tab_adv, text="清空", width=4,
+                       command=lambda k=key: self.clear_row_color(k)
+                       ).grid(row=5 + i, column=2, sticky="w")
+
+        entry(tab_adv, 8, "bar_thickness", "色带厚度")
+        entry(tab_adv, 8, "note", "备注", 1, width=11)
+
+        self.v_bgp = tk.StringVar()
+        cb_bgp = ttk.Combobox(tab_adv, textvariable=self.v_bgp, state="readonly",
+                              values=[""] + list(R.BG_PRESETS.keys()), width=11)
+        cell(tab_adv, 9, "底色预设", cb_bgp)
+        cb_bgp.bind("<<ComboboxSelected>>",
+                    lambda e: self.apply_row_preset("bg", self.v_bgp.get()))
+
+        self.v_bcp = tk.StringVar()
+        cb_bcp = ttk.Combobox(tab_adv, textvariable=self.v_bcp, state="readonly",
+                              values=list(R.MOVE_CLASS.keys()), width=11)
+        cell(tab_adv, 9, "机动等级", cb_bcp, 1)
+        cb_bcp.bind("<<ComboboxSelected>>",
+                    lambda e: self.apply_row_preset("band", self.v_bcp.get()))
+
+        ttk.Button(tab_adv, text="重置本行", width=10, command=self.reset_row).grid(
+            row=10, column=0, columnspan=2, sticky="w", pady=(4, 0))
+
+        for i, (key, text) in enumerate((("show_band", "显示机动色带"),
+                                         ("gloss", "高光斜面"),
+                                         ("hq_box_tint", "HQ 兵牌随色带"),
+                                         ("support_values", "支援叠数字"))):
+            ttk.Checkbutton(tab_adv, text=text, variable=self.b[key],
+                            command=lambda k=key: self.push_flag(k)
+                            ).grid(row=5 + i, column=4, columnspan=2, sticky="w")
 
         # ---- 编制设置
         fb = ttk.LabelFrame(parent, text="编制设置（作用于该编制全部算子）", padding=6)
@@ -496,10 +630,14 @@ class ArmyApp:
     def _refresh_tree(self, keep=None):
         self.tree.delete(*self.tree.get_children())
         for i, row in enumerate(self.army["rows"]):
-            vals = [row.get(k, "") for k in
-                    ("kind", "unit_id", "formation_id", "size_label", "ar", "av",
-                     "quality", "rng", "ma", "move_class", "av_class")]
-            vals.append(flags_of(row))
+            vals = []
+            for key, _title, _width in COLUMNS:
+                if key == "flags":
+                    vals.append(flags_of(row))
+                elif key == "side":
+                    vals.append(side_note(row))
+                else:
+                    vals.append(row.get(key, ""))
             tag = row.get("kind") if row.get("kind") in ("hq", "supply") else ""
             self.tree.insert("", "end", iid=str(i), values=vals, tags=(tag,))
         self.cb_form.configure(values=sorted(self.army["formations"].keys()))
@@ -520,13 +658,17 @@ class ArmyApp:
         for k, var in self.v.items():
             var.set(str(row.get(k, "") or ""))
         for k, var in self.b.items():
-            var.set(bool(row.get(k)))
+            var.set(bool(row.get(k, k in ROW_BOOL_ON)))
         fid = str(row.get("formation_id", "") or "")
         form = formation_of(self.army, fid) if fid else {}
         self.v_form.set(f"当前编制：{fid or '（未填）'}")
         self.sw_bg.configure(bg=form.get("bg", "#A3BA68"))
         self.sw_bar.configure(bg=form.get("bar_color", "#6E8B3D"))
         self.v_sym.set(form.get("symbol", "inf"))
+        for key, btn in self.sw.items():
+            val = str(row.get(key, "") or "") or (
+                form.get("band", "#E8C10C") if key == "band" else "#4a4a52")
+            btn.configure(bg=val)
         self.redraw_preview()
 
     def push(self, key, *_):
@@ -544,6 +686,39 @@ class ArmyApp:
             return
         row[key] = bool(self.b[key].get())
         sel = self.tree.selection()
+        self._touch()
+        self._refresh_tree(keep=int(sel[0]) if sel else None)
+
+    def apply_row_preset(self, kind, name):
+        row = self.cur()
+        if not row or not name:
+            return
+        if kind == "bg":
+            bg, band = R.BG_PRESETS[name]
+            row["bg"], row["band"] = bg, band
+            row["show_band"] = True
+        else:
+            col = R.MOVE_CLASS[name]
+            if col == "none":
+                row["band"], row["show_band"] = "", False
+            else:
+                row["band"], row["show_band"] = col, True
+        self.b["show_band"].set(bool(row["show_band"]))
+        sel = self.tree.selection()
+        self.load_row()
+        self._touch()
+        self._refresh_tree(keep=int(sel[0]) if sel else None)
+
+    def reset_row(self):
+        row = self.cur()
+        if not row:
+            return
+        keep_kind = str(row.get("kind", "inf") or "inf")
+        keep_form = str(row.get("formation_id", "") or "")
+        row.clear()
+        row.update(new_row(keep_kind, keep_form))
+        sel = self.tree.selection()
+        self.load_row()
         self._touch()
         self._refresh_tree(keep=int(sel[0]) if sel else None)
 
@@ -762,6 +937,19 @@ class ArmyApp:
 
         ttk.Button(f, text="创建", command=ok).grid(row=5, column=0, columnspan=2,
                                                    sticky="we", pady=(8, 0))
+
+    def pick_row_color(self, key):
+        row = self.cur()
+        if not row:
+            return
+        _rgb, hx = colorchooser.askcolor(color=str(row.get(key, "") or "#808080"))
+        if hx:
+            self.v[key].set(hx.upper())
+            self.push(key)
+
+    def clear_row_color(self, key):
+        self.v[key].set("")
+        self.push(key)
 
     def set_form_color(self, key, hx):
         row = self.cur()

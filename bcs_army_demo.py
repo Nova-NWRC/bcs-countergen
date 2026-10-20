@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """生成一份“示例军队”：两个编制，每个编制 = HQ + 补给车 + 若干战斗单位。"""
 import os
 import sys
@@ -44,7 +44,8 @@ rows[b].update(ar="10", size_label="XX", command_radius="8", arty="3", ma="8",
                activation="4", quality="3")
 rows[b + 1].update(unit_id="90 ID Sup")
 rows[b + 2].update(unit_id="1/90", size_label="III", ar="4", quality="2", symbol="inf",
-                   rng="", ma="8", move_class="leg")
+                   rng="", ma="8", move_class="leg",
+                   quality_move="1", ma_move="4")     # 移动面：素质 1、MA 4
 army["rows"].append(A.new_row("inf", "90 Inf Div", unit_id="2/90", symbol="inf", size_label="III",
                               ar="4", quality="2", rng="", ma="8", move_class="leg"))
 army["rows"].append(A.new_row("inf", "90 Inf Div", unit_id="3/90", symbol="inf", size_label="III",
