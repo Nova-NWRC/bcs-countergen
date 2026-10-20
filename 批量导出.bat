@@ -9,7 +9,7 @@ rem   用法: 批量导出.bat [spec.json] [size]
 rem ============================================================
 
 set "PY="
-if exist "C:\Users\Administrator\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe" set "PY=C:\Users\Administrator\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe"
+if exist "%USERPROFILE%\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe" set "PY=%USERPROFILE%\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe"
 if not defined PY ( where python >nul 2>nul && set "PY=python" )
 if not defined PY ( where py >nul 2>nul && set "PY=py" )
 

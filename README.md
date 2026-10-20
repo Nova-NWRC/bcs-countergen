@@ -83,6 +83,8 @@ CounterGen/
 
 代码以 **MIT** 发布，详见 [LICENSE](LICENSE)。
 
+本项目仅包含自行编写的绘图代码与依照公开规则书版式复刻的示意图形。
+
 仓库内的样张图（`samples/*.png`）全部由本项目的渲染代码生成，不含任何 MMP / The Gamers
 的商业美术资源、Vassal 模块文件或规则书原文。
 
