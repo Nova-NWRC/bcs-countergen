@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 BCS 算子生成器 —— 渲染核心
 版式严格对照 BCS 系列 Unit Key (BCSV/Unit Key.png)：
@@ -230,6 +230,7 @@ class Counter:
     support_label: str = "Support"  # 支援单位底层大字
     support_values: bool = False    # 支援单位是否在 Support 字样上叠 av/rng 数字
     side: str = "front"             # front 战斗面 / back 移动面（布局完全一致）
+    kind_move: str = ""             # 反面的单位类型：留空=沿用 kind；如 av 正面 / support 反面
     ar_move: str = ""               # 移动面的行动值（留空=沿用 ar）
     quality_move: str = ""          # 移动面的素质值（留空=沿用 quality）
     av_move: str = ""               # 移动面的装甲值（留空=沿用 av）
@@ -1098,14 +1099,18 @@ def render(ct: Counter, size: int = 75, ss: int = 4) -> Image.Image:
     # —— 正/反面：布局一致，只换数值与 AR 画法（不再压暗纱）
     #    *_move 留空 = 沿用正面；填 "-" = 这一面不画该项；填值 = 覆盖
     if ct.side == "back":
+        # 反面可以整枚换成另一种单位类型（如 M18 坦歼：正面装甲单位、反面支援单位）
+        swapped = bool(ct.kind_move) and ct.kind_move != "-" and ct.kind_move != ct.kind
         ct = ct.copy(ar=side_value(ct.ar_move, ct.ar),
                      quality=side_value(ct.quality_move, ct.quality),
                      av=side_value(ct.av_move, ct.av),
                      rng=side_value(ct.rng_move, ct.rng),
                      rng2=side_value(ct.rng2_move, ct.rng2),
                      ma=side_value(ct.ma_move, ct.ma),
-                     move_class=ct.move_class_move or ct.move_class)
-        if ct.back_ghost and ct.ar_style == "box":
+                     move_class=ct.move_class_move or ct.move_class,
+                     kind=(ct.kind_move if swapped else ct.kind))
+        # 换类型的反面是独立单位，AR 不做“虚化”（虚化只表示同一枚算子的另一面）
+        if ct.back_ghost and ct.ar_style == "box" and not swapped:
             ct = ct.copy(ar_style="ghost")
 
     bg = ct.bg

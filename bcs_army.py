@@ -61,19 +61,19 @@ ROW_TEXT_KEYS = ("kind", "unit_id", "formation_id", "size_label", "ar", "av",
                  "band", "bar_pos", "bar_thickness", "ink", "value_ink",
                  "support_label", "ar_style", "range_style", "note",
                  # 移动面覆盖：留空 = 沿用正面，"-" = 这一面不画该项
-                 "ar_move", "quality_move", "av_move", "rng_move", "rng2_move",
-                 "ma_move", "move_class_move")
+                 "kind_move", "ar_move", "quality_move", "av_move", "rng_move",
+                 "rng2_move", "ma_move", "move_class_move")
 ROW_BOOL_KEYS = ("hard", "assault", "no_rebuild", "breakthrough", "gloss",
                  "hq_box_tint", "show_band", "support_values", "back_ghost")
 ROW_BOOL_ON = {"gloss", "hq_box_tint", "back_ghost"}   # Counter 里默认 True 的几项
 # 单行可以覆盖的「编制级」属性：留空 = 用编制的值
 ROW_EXTRA_KEYS = ("symbol",)
 
-SIDE_FIELDS = ("ar_move", "quality_move", "av_move", "rng_move", "rng2_move",
-               "ma_move", "move_class_move")
-SIDE_SHORT = {"ar_move": "AR", "quality_move": "质", "av_move": "AV",
-              "rng_move": "射", "rng2_move": "射2", "ma_move": "MA",
-              "move_class_move": "移"}
+SIDE_FIELDS = ("kind_move", "ar_move", "quality_move", "av_move", "rng_move",
+               "rng2_move", "ma_move", "move_class_move")
+SIDE_SHORT = {"kind_move": "型→", "ar_move": "AR", "quality_move": "质",
+              "av_move": "AV", "rng_move": "射", "rng2_move": "射2",
+              "ma_move": "MA", "move_class_move": "移"}
 # 留空时落成 Counter 的合法默认值，否则渲染会走到不该走的分支
 _TEXT_FALLBACK = {"move_class": "tac", "av_class": "red", "ar_style": "box",
                   "range_style": "plain", "bar_pos": "bottom"}
@@ -519,9 +519,18 @@ class ArmyApp:
         cell(tab_side, 4, "移动力", cb_mcm)
         cb_mcm.bind("<<ComboboxSelected>>", lambda e: self.push("move_class_move"))
 
+        cb_kind_mv = ttk.Combobox(tab_side, textvariable=self.v["kind_move"],
+                                  state="readonly", values=[""] + [k for k, _ in R.KINDS],
+                                  width=10)
+        cell(tab_side, 4, "反面类型", cb_kind_mv, 1)
+        cb_kind_mv.bind("<<ComboboxSelected>>", lambda e: self.push("kind_move"))
+
+        ttk.Label(tab_side, text="反面类型不同 = 整枚换一种算子（如正面 av、反面 support）。",
+                  foreground="#666").grid(row=5, column=0, columnspan=4, sticky="w")
+
         ttk.Checkbutton(tab_side, text="反面 AR 虚化", variable=self.b["back_ghost"],
                         command=lambda: self.push_flag("back_ghost")
-                        ).grid(row=5, column=0, columnspan=4, sticky="w")
+                        ).grid(row=6, column=0, columnspan=4, sticky="w")
 
         # ---- 高级：字号、配色、符号等单算子编辑器的其余选项
         adv = (("name", "大字名"), ("steps", "剩余步数"), ("symbol_text", "符号文字"),

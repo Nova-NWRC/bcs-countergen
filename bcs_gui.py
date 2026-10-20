@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 BCS 算子生成器 —— 图形界面
 左侧实时预览正面/背面，右侧参数面板；支持导出单张 PNG、成对 PNG、JSON 存档与批量导出。
@@ -191,7 +191,8 @@ class App:
         row2(g, 2, "射程第二行", self._entry(g, "rng2_move"),
              "顶部小框值", self._entry(g, "ar_move"))
         row(g, "移动力类型", combo(g, "move_class_move", ["", "leg", "truck", "tac"], "", 3), 3)
-        chk(g, "back_ghost", "移动面 AR 虚化（灰字）", 4, 0, span=4)
+        row(g, "反面类型", combo(g, "kind_move", [""] + [k for k, _ in R.KINDS], "", 4), 4)
+        chk(g, "back_ghost", "移动面 AR 虚化（灰字）", 5, 0, span=4)
 
         # ---- ⑤ HQ · 支援 ----------------------------------------------
         g = group("⑤ 指挥部 · 支援单位", "只有对应类型的算子会用到这些字段。")

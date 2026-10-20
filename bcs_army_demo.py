@@ -51,6 +51,11 @@ army["rows"].append(A.new_row("inf", "90 Inf Div", unit_id="2/90", symbol="inf",
 army["rows"].append(A.new_row("inf", "90 Inf Div", unit_id="3/90", symbol="inf", size_label="III",
                               ar="3", quality="2", rng="", ma="12",
                               move_class="truck", no_rebuild=True))
+# M18 坦歼：正面是可独立作战的装甲单位，反面整枚变成支援单位
+army["rows"].append(A.new_row("av", "90 Inf Div", unit_id="M18/90", size_label="II", ar="4",
+                              symbol="td", av="3", quality="3", rng="3", ma="8",
+                              move_class="tac", av_class="red",
+                              kind_move="support", support_label="M18 TD"))
 
 A.save_army(army, OUT)
 print("ok", OUT, len(army["rows"]), "rows")

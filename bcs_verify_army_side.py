@@ -181,6 +181,20 @@ except Exception as exc:                                  # pragma: no cover
     ok_all = False
     print("不一致  预设/重置:", exc)
 
+print("\n=== 8. 反面整枚换成另一种单位类型（kind_move） ===")
+_m18 = make(kind_move="support", support_label="Support")
+check("kind_move 落进 Counter", _m18.kind_move, "support")
+check("正面不受 kind_move 影响", sig(_m18, "front"), sig(make(), "front"))
+check("反面换了版式", sig(_m18, "back") != sig(make(), "back"), True)
+# 反过来：拿着已换好的 kind 直接渲染反面，应与 kind_move 的结果逐字节一致
+check("反面 == 直接用 support 渲染",
+      sig(_m18, "back"),
+      sig(make(kind="support").copy(kind_move="", back_ghost=False), "back"))
+check('kind_move 填 "-" 视为不换', sig(make(kind_move="-"), "back"), sig(make(), "back"))
+check("换类型的反面不虚化 AR", sig(make(kind_move="support", back_ghost=True), "back"),
+      sig(make(kind_move="support", back_ghost=False), "back"))
+check("移动面列带上类型", A.side_note({"kind_move": "support", "ma_move": "8"}), "型→support MA8")
+
 for p in (csv_path,):
     try:
         os.remove(p)
