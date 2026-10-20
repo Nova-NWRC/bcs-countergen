@@ -1,5 +1,14 @@
-﻿# -*- coding: utf-8 -*-
-"""量 HQ 激活面：炮击值 vs 移动力的墨迹高度与中心线，确认“移动力略大、中心对齐”。"""
+# -*- coding: utf-8 -*-
+"""量 HQ 激活面：炮击值 vs 移动力的墨迹高度与中心线，确认「移动力略大、中心对齐」。
+
+测量口径 —— 差分渲染（v1.6.0 起这两个数值上色方式不同，任何一种颜色掩膜都会踩坑）：
+  · 炮击值  —— _hq_num()：黑字 #101010 + 白描边
+  · 移动力  —— draw_badged_value(..., MOVE_CLASS_STYLE[move_class], ...)：
+              tac 红字 #B3202A / leg 白字 #FFFFFF / truck 近黑 #1A1A1A
+  「黑墨」掩膜对红字/白字直接取空（老版本就是这样抛 TypeError 的）；而按「偏离底色」
+  取又会把背面白带和底部斜面高光算成墨迹。所以这里渲染两遍 —— 正常 vs
+  该数值清空 —— 逐像素取差异，差异区即该数值的完整墨迹（含描边），与配色无关。
+"""
 import os
 import sys
 
@@ -15,28 +24,94 @@ for _s in (sys.stdout, sys.stderr):
         pass
 
 U = 600 / 75.0
-HQ = R.Counter(kind="hq", side="back", command_radius="10", formation_id="",
-               activation="4", arty="4", ma="8", bg="#7E9B3D", bar_color="#6E8B3D")
-img = R.render(HQ, 600, ss=1)
-a = np.array(img.convert("RGB")).astype(int)
-dark = (a[:, :, 0] < 70) & (a[:, :, 1] < 70) & (a[:, :, 2] < 70)
+ON = "#7E9B3D"                      # 算子底色
+SPLIT = 44.0                        # 左右分界：< 44 归炮击值，>= 44 归移动力
+
+TOL_H = 0.5                         # 墨迹高 vs 设计目标（格）
+TOL_RATIO = 0.06                    # 高度比 vs HQ_MA_SCALE
+TOL_C = 0.30                        # 中心线 / 中心漂移（格）
+
+# 版式契约（v1.6.0 实测值）。有意改 L 里这几个常量时，这里必须同步改 —— 红了是在提醒你
+# 确认「改版式」而不是「画歪了」，这正是交接文档 §14.1 要求的「改完对比打印值」。
+EXPECT_ART_H = 13.60                # = HQ_NUM_H
+EXPECT_MA_H = 19.72                 # = HQ_NUM_H * HQ_MA_SCALE
+EXPECT_RATIO = 1.45                 # = HQ_MA_SCALE
 
 
-def bbox(x0, x1, y0, y1):
-    sub = dark[int(y0 * U):int(y1 * U), int(x0 * U):int(x1 * U)]
-    ys, xs = np.where(sub)
+def make_hq(arty="4", ma="8", move_class="tac"):
+    return R.Counter(kind="hq", side="back", command_radius="10", formation_id="",
+                     activation="4", arty=arty, ma=ma, bg=ON, bar_color="#6E8B3D",
+                     move_class=move_class)
+
+
+def pixels(ct):
+    return np.array(R.render(ct, 600, ss=1).convert("RGB")).astype(int)
+
+
+def bbox(mask):
+    ys, xs = np.where(mask)
     if len(ys) == 0:
         return None
-    return (x0 + xs.min() / U, y0 + ys.min() / U, x0 + xs.max() / U, y0 + ys.max() / U)
+    return (xs.min() / U, ys.min() / U, xs.max() / U, ys.max() / U)
 
 
-arty = bbox(23, 44, 47, 72)
-ma = bbox(45, 70, 47, 72)
-for name, b in (("炮击值 4", arty), ("移动力 8", ma)):
-    h = b[3] - b[1] + 1 / U
-    cy = (b[1] + b[3]) / 2
-    print(f"{name}: y {b[1]:5.2f}..{b[3]:5.2f}  高 {h:5.2f}  中心 y {cy:5.2f}"
-          f"  x {b[0]:5.2f}..{b[2]:5.2f}")
-if arty and ma:
-    print(f"\n高度比 = {(ma[3]-ma[1])/(arty[3]-arty[1]):.3f}（应 >1 且 ≈1.12）")
-    print(f"中心差 = {abs((arty[1]+arty[3])/2 - (ma[1]+ma[3])/2):.2f} 格（应 ≈0）")
+def probe(ma_txt, mc):
+    """返回 (炮击值墨迹框, 移动力墨迹框)；测不到的返回 None。"""
+    full = pixels(make_hq(arty="4", ma=ma_txt, move_class=mc))
+    blank = pixels(make_hq(arty="", ma="", move_class=mc))
+    diff = np.abs(full - blank).max(axis=2) > 0
+    xs = np.arange(diff.shape[1]) / U
+    return bbox(diff & (xs < SPLIT)[None, :]), bbox(diff & (xs >= SPLIT)[None, :])
+
+
+art_des = R.L["HQ_NUM_H"]
+ma_des = R.L["HQ_NUM_H"] * R.L["HQ_MA_SCALE"]
+print(f"契约：炮击墨迹高 {EXPECT_ART_H:.2f} · 移动力墨迹高 {EXPECT_MA_H:.2f} · 高度比 {EXPECT_RATIO:.2f}")
+print(f"设计：炮击墨迹高 {art_des:.2f} · 移动力墨迹高 {ma_des:.2f}"
+      f"（HQ_NUM_H {R.L['HQ_NUM_H']} × HQ_MA_SCALE {R.L['HQ_MA_SCALE']}）"
+      f"{'' if (abs(art_des-EXPECT_ART_H) <= TOL_H and abs(ma_des-EXPECT_MA_H) <= TOL_H) else '  ← 常量变了：确认版式后同步改 EXPECT_*'}")
+print(f"      炮击中心 {R.L['HQ_ARTY_B']} · 移动力中心 {R.L['HQ_MA_B']}\n")
+
+print(f"{'用例':>12}{'炮击高':>8}{'移动力高':>9}{'高度比':>7}"
+      f"{'炮击中心y':>10}{'移动力中心y':>11}{'中心差':>7}  判定")
+
+ok_all = True
+for ma_txt, mc in (("8", "tac"), ("8", "leg"), ("8", "truck"), ("12", "tac")):
+    art, ma = probe(ma_txt, mc)
+    if art is None or ma is None:
+        side = "炮击值" if art is None else "移动力"
+        print(f"{ma_txt + '/' + mc:>12}  ← {side}取不到墨迹（掩膜或版式变了）")
+        ok_all = False
+        continue
+
+    ha = art[3] - art[1] + 1 / U
+    hm = ma[3] - ma[1] + 1 / U
+    ca = (art[1] + art[3]) / 2
+    cm = (ma[1] + ma[3]) / 2
+    cxa = (art[0] + art[2]) / 2
+    cxm = (ma[0] + ma[2]) / 2
+    ratio = hm / ha
+    d_ha, d_hm = abs(ha - EXPECT_ART_H), abs(hm - EXPECT_MA_H)
+    d_ratio = abs(ratio - EXPECT_RATIO)
+    d_c = abs(ca - cm)
+    d_ca = abs(ca - R.L["HQ_ARTY_B"][1])
+    d_cm = abs(cm - R.L["HQ_MA_B"][1])
+    d_xa = abs(cxa - R.L["HQ_ARTY_B"][0])
+    d_xm = abs(cxm - R.L["HQ_MA_B"][0])
+    ok = (d_ha <= TOL_H and d_hm <= TOL_H and d_ratio <= TOL_RATIO and d_c <= TOL_C
+          and d_ca <= TOL_C and d_cm <= TOL_C and d_xa <= TOL_C and d_xm <= TOL_C)
+    ok_all = ok_all and ok
+    print(f"{ma_txt + '/' + mc:>12}{ha:>8.2f}{hm:>9.2f}{ratio:>7.3f}"
+          f"{ca:>10.2f}{cm:>11.2f}{d_c:>7.2f}  {'一致' if ok else '检查'}"
+          f"{'' if d_ha <= TOL_H else ' ←炮击高偏离设计'}"
+          f"{'' if d_hm <= TOL_H else ' ←移动力高偏离设计'}"
+          f"{'' if d_ratio <= TOL_RATIO else ' ←高度比偏离 %0.2f' % EXPECT_RATIO}"
+          f"{'' if d_c <= TOL_C else ' ←中心线不齐'}"
+          f"{'' if d_ca <= TOL_C else ' ←炮击中心漂移'}"
+          f"{'' if d_cm <= TOL_C else ' ←移动力中心漂移'}"
+          f"{'' if d_xa <= TOL_C else ' ←炮击水平偏心'}"
+          f"{'' if d_xm <= TOL_C else ' ←移动力水平偏心'}")
+
+print(f"\n容差：墨迹高 ±{TOL_H} 格 · 高度比 ±{TOL_RATIO} · 中心 ±{TOL_C} 格")
+print("总体：", "全部通过" if ok_all else "有偏差，见上面「检查」行")
+sys.exit(0 if ok_all else 1)
