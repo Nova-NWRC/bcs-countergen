@@ -1,4 +1,4 @@
-# BCS 算子生成器（CounterGen）
+﻿# BCS 算子生成器（CounterGen）
 
 一个给 **Battalion Combat Series（BCS）** 自制算子的桌面小工具：按官方 Unit Key 与真实算子实测版式绘制，
 支持战斗单位、指挥部、支援单位、补给车、辎重、标记算子，双面（战斗面/移动面、正常面/已激活面、正常面/失常面），
@@ -29,6 +29,10 @@ python bcs_demo.py                                                       # 生�
 
 ## 算子示例
 
+**军队编辑器：一行一枚算子，按编制分组，一键出整套**
+
+![军队批量](samples/army_sheet.png)
+
 **战斗单位：战斗面 / 移动面**
 
 ![战斗单位双面](samples/combat_sides.png)
@@ -58,10 +62,11 @@ CounterGen/
 ├─ bcs_render.py     渲染核心（版式常量 L、符号库、双面、导出）
 ├─ bcs_gui.py        图形界面
 ├─ bcs_cli.py        命令行 / 批量
+├─ bcs_army.py       军队编辑器（表格批量编辑 / 一键出整套）
 ├─ bcs_app.py        打包入口
 ├─ bcs_*.py          样张与校验脚本（9 个 verify + 6 个 sheet）
 ├─ samples/          样张 PNG + units.json 示例库
-├─ 启动生成器.bat / 批量导出.bat / 构建EXE.bat
+├─ 启动生成器.bat / 启动军队编辑器.bat / 批量导出.bat / 构建EXE.bat
 ├─ 使用指南.md       完整说明书
 ├─ README_技术速查.md 版式与字段速查
 └─ LICENSE           MIT

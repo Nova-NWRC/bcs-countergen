@@ -77,6 +77,7 @@ class App:
         ttk.Button(bar2, text="◀ 上一枚", command=lambda: self.browse(-1)).pack(side="left")
         ttk.Button(bar2, text="下一枚 ▶", command=lambda: self.browse(1)).pack(side="left", padx=4)
         ttk.Button(bar2, text="载入示例库", command=self.load_gallery).pack(side="left", padx=4)
+        ttk.Button(bar2, text="军队编辑器…", command=self.open_army).pack(side="left", padx=(10, 4))
 
     # ------------------------------------------------------------ 参数面板
     def _scrollable(self, parent):
@@ -248,6 +249,16 @@ class App:
         e = ttk.Entry(parent, textvariable=self.vars[key])
         e.bind("<KeyRelease>", lambda ev, k=key: self._push(k, self.vars[k].get()))
         return e
+
+    def open_army(self):
+        """另开一个进程启动军队编辑器（表格批量编辑）。"""
+        import subprocess
+        cmd = ([sys.executable, "--army"] if FROZEN
+               else [sys.executable, os.path.join(HERE, "bcs_army.py")])
+        try:
+            subprocess.Popen(cmd)
+        except Exception as exc:
+            messagebox.showerror("打开失败", str(exc))
 
     # ------------------------------------------------------------ 数据同步
     def _sync_to_widgets(self):

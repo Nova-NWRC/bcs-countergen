@@ -10,6 +10,10 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 if __name__ == "__main__":
+    if "--army" in sys.argv:
+        import bcs_army
+        argv = [a for a in sys.argv[1:] if a != "--army"]
+        raise SystemExit(bcs_army.main(argv))
     if "--cli" in sys.argv:
         import bcs_cli
         argv = [a for a in sys.argv[1:] if a != "--cli"]
