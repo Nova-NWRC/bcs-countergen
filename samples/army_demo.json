@@ -64,7 +64,11 @@
       "rng2_move": "",
       "ma_move": "",
       "move_class_move": "",
-      "back_ghost": true
+      "back_ghost": true,
+      "kind_move": "",
+      "assault_move": "",
+      "hard_move": "",
+      "breakthrough_move": ""
     },
     {
       "kind": "supply",
@@ -112,7 +116,11 @@
       "rng2_move": "",
       "ma_move": "",
       "move_class_move": "",
-      "back_ghost": true
+      "back_ghost": true,
+      "kind_move": "",
+      "assault_move": "",
+      "hard_move": "",
+      "breakthrough_move": ""
     },
     {
       "kind": "inf",
@@ -160,7 +168,11 @@
       "rng2_move": "",
       "ma_move": "",
       "move_class_move": "",
-      "back_ghost": true
+      "back_ghost": true,
+      "kind_move": "",
+      "assault_move": "",
+      "hard_move": "",
+      "breakthrough_move": ""
     },
     {
       "kind": "av",
@@ -208,7 +220,11 @@
       "rng2_move": "",
       "ma_move": "",
       "move_class_move": "",
-      "back_ghost": true
+      "back_ghost": true,
+      "kind_move": "",
+      "assault_move": "",
+      "hard_move": "",
+      "breakthrough_move": ""
     },
     {
       "kind": "inf",
@@ -256,7 +272,11 @@
       "rng2_move": "",
       "ma_move": "",
       "move_class_move": "",
-      "back_ghost": true
+      "back_ghost": true,
+      "kind_move": "",
+      "assault_move": "-",
+      "hard_move": "",
+      "breakthrough_move": ""
     },
     {
       "kind": "support",
@@ -304,7 +324,11 @@
       "rng2_move": "",
       "ma_move": "",
       "move_class_move": "",
-      "back_ghost": true
+      "back_ghost": true,
+      "kind_move": "",
+      "assault_move": "",
+      "hard_move": "",
+      "breakthrough_move": ""
     },
     {
       "kind": "hq",
@@ -352,7 +376,11 @@
       "rng2_move": "",
       "ma_move": "",
       "move_class_move": "",
-      "back_ghost": true
+      "back_ghost": true,
+      "kind_move": "",
+      "assault_move": "",
+      "hard_move": "",
+      "breakthrough_move": ""
     },
     {
       "kind": "supply",
@@ -400,7 +428,11 @@
       "rng2_move": "",
       "ma_move": "",
       "move_class_move": "",
-      "back_ghost": true
+      "back_ghost": true,
+      "kind_move": "",
+      "assault_move": "",
+      "hard_move": "",
+      "breakthrough_move": ""
     },
     {
       "kind": "inf",
@@ -448,7 +480,11 @@
       "rng2_move": "",
       "ma_move": "4",
       "move_class_move": "",
-      "back_ghost": true
+      "back_ghost": true,
+      "kind_move": "",
+      "assault_move": "",
+      "hard_move": "",
+      "breakthrough_move": ""
     },
     {
       "kind": "inf",
@@ -496,7 +532,11 @@
       "rng2_move": "",
       "ma_move": "",
       "move_class_move": "",
-      "back_ghost": true
+      "back_ghost": true,
+      "kind_move": "",
+      "assault_move": "",
+      "hard_move": "",
+      "breakthrough_move": ""
     },
     {
       "kind": "inf",
@@ -544,7 +584,11 @@
       "rng2_move": "",
       "ma_move": "",
       "move_class_move": "",
-      "back_ghost": true
+      "back_ghost": true,
+      "kind_move": "",
+      "assault_move": "",
+      "hard_move": "",
+      "breakthrough_move": ""
     },
     {
       "kind": "av",
@@ -593,7 +637,10 @@
       "ma_move": "",
       "move_class_move": "",
       "back_ghost": true,
-      "kind_move": "support"
+      "kind_move": "support",
+      "assault_move": "",
+      "hard_move": "",
+      "breakthrough_move": ""
     }
   ]
 }

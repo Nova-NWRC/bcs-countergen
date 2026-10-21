@@ -32,7 +32,7 @@ army["rows"].append(A.new_row("av", "10 GD", unit_id="II/33", size_label="II", a
                               move_class="truck", av_class="standoff", hard=True))
 army["rows"].append(A.new_row("inf", "10 GD", unit_id="I/505", size_label="II", ar="5", symbol="inf",
                               quality="3", rng="", ma="8", move_class="leg",
-                              assault=True, no_rebuild=True))
+                              assault=True, no_rebuild=True, assault_move="-"))
 army["rows"].append(A.new_row("support", "10 GD", unit_id="Spt 10 GD", size_label="II", symbol="inf",
                               ar="6", av="", quality="", rng="", ma=""))
 

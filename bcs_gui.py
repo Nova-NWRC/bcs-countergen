@@ -192,7 +192,10 @@ class App:
              "顶部小框值", self._entry(g, "ar_move"))
         row(g, "移动力类型", combo(g, "move_class_move", ["", "leg", "truck", "tac"], "", 3), 3)
         row(g, "反面类型", combo(g, "kind_move", [""] + [k for k, _ in R.KINDS], "", 4), 4)
-        chk(g, "back_ghost", "移动面 AR 虚化（灰字）", 5, 0, span=4)
+        row2(g, 5, "突击箭头", combo(g, "assault_move", ["", "-", "1"], "", 5),
+             "Hard 黄框", combo(g, "hard_move", ["", "-", "1"], "", 5, col=1))
+        row(g, "突破型", combo(g, "breakthrough_move", ["", "-", "1"], "", 6), 6)
+        chk(g, "back_ghost", "移动面 AR 虚化（灰字）", 7, 0, span=4)
 
         # ---- ⑤ HQ · 支援 ----------------------------------------------
         g = group("⑤ 指挥部 · 支援单位", "只有对应类型的算子会用到这些字段。")

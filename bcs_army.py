@@ -62,7 +62,9 @@ ROW_TEXT_KEYS = ("kind", "unit_id", "formation_id", "size_label", "ar", "av",
                  "support_label", "ar_style", "range_style", "note",
                  # 移动面覆盖：留空 = 沿用正面，"-" = 这一面不画该项
                  "kind_move", "ar_move", "quality_move", "av_move", "rng_move",
-                 "rng2_move", "ma_move", "move_class_move")
+                 "rng2_move", "ma_move", "move_class_move",
+                 # 布尔量的面级三态：留空 = 沿用，"-" = 不画，其余 = 画
+                 "assault_move", "hard_move", "breakthrough_move")
 ROW_BOOL_KEYS = ("hard", "assault", "no_rebuild", "breakthrough", "gloss",
                  "hq_box_tint", "show_band", "support_values", "back_ghost")
 ROW_BOOL_ON = {"gloss", "hq_box_tint", "back_ghost"}   # Counter 里默认 True 的几项
@@ -70,10 +72,12 @@ ROW_BOOL_ON = {"gloss", "hq_box_tint", "back_ghost"}   # Counter 里默认 True 
 ROW_EXTRA_KEYS = ("symbol",)
 
 SIDE_FIELDS = ("kind_move", "ar_move", "quality_move", "av_move", "rng_move",
-               "rng2_move", "ma_move", "move_class_move")
+               "rng2_move", "ma_move", "move_class_move",
+               "assault_move", "hard_move", "breakthrough_move")
 SIDE_SHORT = {"kind_move": "型→", "ar_move": "AR", "quality_move": "质",
               "av_move": "AV", "rng_move": "射", "rng2_move": "射2",
-              "ma_move": "MA", "move_class_move": "移"}
+              "ma_move": "MA", "move_class_move": "移",
+              "assault_move": "突", "hard_move": "硬", "breakthrough_move": "破"}
 # 留空时落成 Counter 的合法默认值，否则渲染会走到不该走的分支
 _TEXT_FALLBACK = {"move_class": "tac", "av_class": "red", "ar_style": "box",
                   "range_style": "plain", "bar_pos": "bottom"}
@@ -112,7 +116,8 @@ def new_row(kind: str, formation_id: str, **kw) -> dict:
                support_label="", support_values=False,
                ar_style="", range_style="", note="",
                ar_move="", quality_move="", av_move="", rng_move="", rng2_move="",
-               ma_move="", move_class_move="", back_ghost=True)
+               ma_move="", move_class_move="", back_ghost=True,
+               kind_move="", assault_move="", hard_move="", breakthrough_move="")
     row.update(kw)
     return row
 
@@ -533,9 +538,21 @@ class ArmyApp:
         ttk.Label(tab_side, text="反面类型不同 = 整枚换一种算子（如正面 av、反面 support）。",
                   foreground="#666").grid(row=5, column=0, columnspan=4, sticky="w")
 
+        # 布尔量的面级三态：留空 = 沿用正面，- = 这一面不画，1/有 = 这一面画
+        for i, (key, text) in enumerate((("assault_move", "突击"),
+                                         ("hard_move", "Hard"),
+                                         ("breakthrough_move", "突破"))):
+            cb = ttk.Combobox(tab_side, textvariable=self.v[key], state="readonly",
+                              values=["", "-", "1"], width=8)
+            cell(tab_side, 7 + i // 2, text, cb, i % 2)
+            cb.bind("<<ComboboxSelected>>", lambda e, k=key: self.push(k))
+
+        ttk.Label(tab_side, text="突击箭头等：留空=沿用正面，- = 反面不画，1 = 反面画。",
+                  foreground="#666").grid(row=10, column=0, columnspan=4, sticky="w")
+
         ttk.Checkbutton(tab_side, text="反面 AR 虚化", variable=self.b["back_ghost"],
                         command=lambda: self.push_flag("back_ghost")
-                        ).grid(row=6, column=0, columnspan=4, sticky="w")
+                        ).grid(row=11, column=0, columnspan=4, sticky="w")
 
         # ---- 高级：字号、配色、符号等单算子编辑器的其余选项
         adv = (("name", "大字名"), ("steps", "剩余步数"), ("symbol_text", "符号文字"),

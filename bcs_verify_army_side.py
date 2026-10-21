@@ -195,6 +195,37 @@ check("换类型的反面不虚化 AR", sig(make(kind_move="support", back_ghost
       sig(make(kind_move="support", back_ghost=False), "back"))
 check("移动面列带上类型", A.side_note({"kind_move": "support", "ma_move": "8"}), "型→support MA8")
 
+print("\n=== 9. 突击箭头 / Hard / 突破型 的面级三态 ===")
+# 正面有箭头，反面可以没有（这是本次要补的能力）
+_arw = make(assault=True)
+check("正面有突击箭头时整体≠无箭头", sig(_arw, "front") != sig(make(assault=False), "front"), True)
+check("反面留空 = 沿用正面（有箭头）", sig(_arw.copy(assault_move=""), "back"), sig(_arw, "back"))
+check('反面填 "-" = 不画箭头', sig(_arw, "back") != sig(_arw.copy(assault_move="-"), "back"), True)
+check('"-" 的反面 == 正面本身无箭头', sig(_arw.copy(assault_move="-"), "back"),
+      sig(make(assault=False), "back"))
+check('正面无箭头、反面填 "1" 也能画出来',
+      sig(make(assault=False).copy(assault_move="1"), "back"), sig(_arw, "back"))
+check("正面不受 assault_move 影响", sig(_arw, "front"), sig(_arw.copy(assault_move="-"), "front"))
+# Hard：黄框 vs 白框
+_hd = make(hard=True)
+check("反面 hard_move='-' 与 hard=False 一致",
+      sig(_hd.copy(hard_move="-"), "back"), sig(make(hard=False), "back"))
+check('反面 hard_move="1" 与 hard=True 一致',
+      sig(make(hard=False).copy(hard_move="1"), "back"), sig(_hd, "back"))
+# 突破型：AV 小三角
+check("反面 breakthrough_move='1' 生效",
+      sig(make(breakthrough=True).copy(breakthrough_move="-"), "back")
+      != sig(make(breakthrough=True), "back"), True)
+# 落进 Counter、进 CSV、进移动面列
+check("三态字段落进 Counter",
+      (make(assault_move="-", hard_move="1", breakthrough_move="-").assault_move,
+       make(hard_move="1").hard_move, make(breakthrough_move="-").breakthrough_move),
+      ("-", "1", "-"))
+check("CSV 字段含三项布尔覆盖",
+      all(k in A.CSV_FIELDS for k in ("assault_move", "hard_move", "breakthrough_move")), True)
+check("移动面列显示 突无", A.side_note({"assault_move": "-"}), "突无")
+check("移动面列显示 突1 硬1", A.side_note({"assault_move": "1", "hard_move": "1"}), "突1 硬1")
+
 for p in (csv_path,):
     try:
         os.remove(p)

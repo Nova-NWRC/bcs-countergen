@@ -208,6 +208,9 @@ class Counter:
     assault: bool = True            # 突击箭头
     hard: bool = False              # Hard（黄框）/ Not Hard（白框）
     breakthrough: bool = False      # 突破型 AV 小三角
+    assault_move: str = ""          # 反面突击箭头：留空=沿用 "/"-"=不画/其余=画
+    hard_move: str = ""             # 反面 Hard：同上三态
+    breakthrough_move: str = ""     # 反面突破型：同上三态
     steps: str = ""                 # HQ: 剩余步骤 / AV: Steps Available
     command_radius: str = ""        # HQ 指挥半径
     activation: str = ""            # HQ 激活值
@@ -258,6 +261,14 @@ def side_value(move_val, front_val: str) -> str:
     if mv == "-":
         return ""
     return mv or (front_val or "")
+
+
+def side_flag(move_val, front_val: bool) -> bool:
+    """布尔量的正/反三态：留空=沿用正面；"-"/"0"/"no"/"off"/"false"=不画；其余非空=画。"""
+    mv = "" if move_val is None else str(move_val).strip().lower()
+    if not mv:
+        return bool(front_val)
+    return mv not in ("-", "0", "no", "false", "off", "none")
 
 DEF = Counter()
 
@@ -1110,6 +1121,9 @@ def render(ct: Counter, size: int = 75, ss: int = 4) -> Image.Image:
                      rng2=side_value(ct.rng2_move, ct.rng2),
                      ma=side_value(ct.ma_move, ct.ma),
                      move_class=ct.move_class_move or ct.move_class,
+                     assault=side_flag(ct.assault_move, ct.assault),
+                     hard=side_flag(ct.hard_move, ct.hard),
+                     breakthrough=side_flag(ct.breakthrough_move, ct.breakthrough),
                      kind=(ct.kind_move if swapped else ct.kind))
         # 换类型的反面是独立单位，AR 不做“虚化”（虚化只表示同一枚算子的另一面）
         if ct.back_ghost and ct.ar_style == "box" and not swapped:
