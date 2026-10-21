@@ -34,7 +34,7 @@ army["rows"].append(A.new_row("inf", "10 GD", unit_id="I/505", size_label="II", 
                               quality="3", rng="", ma="8", move_class="leg",
                               assault=True, no_rebuild=True, assault_move="-"))
 army["rows"].append(A.new_row("support", "10 GD", unit_id="Spt 10 GD", size_label="II", symbol="inf",
-                              ar="6", av="", quality="", rng="", ma=""))
+                              ar="6", av="", quality="3", rng="", ma="8"))
 
 # ---- 编制 2：90 Inf Div
 A.add_formation(army, "90 Inf Div", "#E9D6B8", "#A63A6B", "inf", hq_id="90 ID HQ")

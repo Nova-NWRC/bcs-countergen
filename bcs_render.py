@@ -19,6 +19,11 @@ from PIL import Image, ImageDraw, ImageFont
 
 # ---------------------------------------------------------------- 常量与字体
 DESIGN = 75.0
+CONTENT_SCALE = 1.06      # 内容整体等比放大（底板/色带/边框不缩放）
+CONTENT_OY = 3.5          # 内容整体下移（设计单位），让顶/底留白大致相等
+SCALE_AX, SCALE_AY = 37.5, 30.0   # 缩放的锚点（设计单位）
+BAR_X = 3.0               # 编制色带左右留白（设计单位，离底板内沿）
+BAR_GAP = 6.0             # 编制色带离底边的距离（设计单位）
 FONT_DIR = r"C:\Windows\Fonts"
 FONTS = {
     "narrow_b": os.path.join(FONT_DIR, "ARIALNB.TTF"),   # Arial Narrow Bold —— 番号/编制
@@ -233,7 +238,7 @@ class Counter:
     # 面
     hq_box_tint: bool = True        # HQ 正面兵牌底色是否跟随编制色带
     support_label: str = "Support"  # 支援单位底层大字
-    support_values: bool = False    # 支援单位是否在 Support 字样上叠 av/rng 数字
+    support_values: bool = False    # 已废弃：支援单位现在总画数值，保留仅为兼容旧 JSON
     side: str = "front"             # front 战斗面 / back 移动面（布局完全一致）
     kind_move: str = ""             # 反面的单位类型：留空=沿用 kind；如 av 正面 / support 反面
     ar_move: str = ""               # 移动面的行动值（留空=沿用 ar）
@@ -282,13 +287,27 @@ class Ctx:
         self.d = ImageDraw.Draw(img, "RGBA")
         self.u = u                      # 1 个设计单位 = u 像素
         self.ink = ink
+        self.sc = 1.0                   # 内容缩放（底板/色带画的时候为 1.0）
+        self.ax = SCALE_AX              # 缩放锚点（设计单位）
+        self.ay = SCALE_AY
+        self.sxy = None                 # 坐标缩放（None=跟随 sc）
+        self.oy = 0.0                   # 内容整体下移（设计单位）
 
-    # 单位换算
+    # 单位换算（长度）
     def p(self, v: float) -> float:
-        return v * self.u
+        return v * self.u * self.sc
 
     def px(self, v: float) -> int:
-        return max(1, int(round(v * self.u)))
+        return max(1, int(round(v * self.u * self.sc)))
+
+    # 坐标换算（按锚点等比缩放）；sxy 为 None 时跟随 sc，设成 1.0 即“字号放大但位置不动”
+    def qx(self, x: float) -> float:
+        k = self.sc if self.sxy is None else self.sxy
+        return (self.ax + (x - self.ax) * k) * self.u
+
+    def qy(self, y: float) -> float:
+        k = self.sc if self.sxy is None else self.sxy
+        return (self.ay + (y - self.ay) * k + self.oy) * self.u
 
     # 文本
     def text(self, xy, s, size, color=None, fnt="narrow_b", anchor="mm",
@@ -318,19 +337,19 @@ class Ctx:
         if tracking:
             return self._text_tracked(xy, s, f, color, tracking, anchor, outline, outline_w)
         stroke = self.p(outline_w) if outline else 0
-        self.d.text((self.p(xy[0]), self.p(xy[1])), s, font=f, fill=color, anchor=anchor,
+        self.d.text((self.qx(xy[0]), self.qy(xy[1])), s, font=f, fill=color, anchor=anchor,
                     stroke_width=int(stroke), stroke_fill=outline)
         return (size_px / self.u, w if 'w' in dir() else 0)
 
     def _text_tracked(self, xy, s, f, color, tracking, anchor, outline, outline_w):
         widths = [self.d.textlength(ch, font=f) for ch in s]
         total = sum(widths) + self.p(tracking) * (len(s) - 1)
-        x = self.p(xy[0])
+        x = self.qx(xy[0])
         if anchor[0] == "m":
             x -= total / 2
         elif anchor[0] == "r":
             x -= total
-        y = self.p(xy[1])
+        y = self.qy(xy[1])
         stroke = self.p(outline_w) if outline else 0
         for ch, w in zip(s, widths):
             a = anchor[1] + "m" if anchor[1] != "m" else "mm"
@@ -351,34 +370,38 @@ class Ctx:
         td.text((pad - bb[0], pad - bb[1]), s, font=f, fill=color,
                 stroke_width=int(stroke), stroke_fill=outline)
         rot = tmp.rotate(rotate, expand=True, resample=Image.BICUBIC)
-        cx, cy = self.p(xy[0]), self.p(xy[1])
+        cx, cy = self.qx(xy[0]), self.qy(xy[1])
         self.img.alpha_composite(rot, (int(cx - rot.width / 2), int(cy - rot.height / 2)))
         self.d = ImageDraw.Draw(self.img, "RGBA")
         return (f.size / self.u, rot.height / self.u)
 
     # 形状
     def rrect(self, box, r, fill=None, outline=None, width=1.0):
-        self.d.rounded_rectangle([self.p(v) for v in box], radius=self.p(r),
+        self.d.rounded_rectangle([self.qx(box[0]), self.qy(box[1]),
+                                  self.qx(box[2]), self.qy(box[3])], radius=self.p(r),
                                  fill=fill, outline=outline, width=max(1, int(self.p(width))))
 
     def rect(self, box, fill=None, outline=None, width=1.0):
-        self.d.rectangle([self.p(v) for v in box], fill=fill, outline=outline,
+        self.d.rectangle([self.qx(box[0]), self.qy(box[1]),
+                          self.qx(box[2]), self.qy(box[3])], fill=fill, outline=outline,
                          width=max(1, int(self.p(width))))
 
     def line(self, pts, color=None, width=1.2, joint="curve"):
-        self.d.line([(self.p(x), self.p(y)) for x, y in pts], fill=color or self.ink,
+        self.d.line([(self.qx(x), self.qy(y)) for x, y in pts], fill=color or self.ink,
                     width=max(1, int(self.p(width))), joint=joint)
 
     def poly(self, pts, fill=None, outline=None, width=1.0):
-        self.d.polygon([(self.p(x), self.p(y)) for x, y in pts], fill=fill,
+        self.d.polygon([(self.qx(x), self.qy(y)) for x, y in pts], fill=fill,
                        outline=outline, width=max(1, int(self.p(width))))
 
     def ellipse(self, box, fill=None, outline=None, width=1.0):
-        self.d.ellipse([self.p(v) for v in box], fill=fill, outline=outline,
+        self.d.ellipse([self.qx(box[0]), self.qy(box[1]),
+                        self.qx(box[2]), self.qy(box[3])], fill=fill, outline=outline,
                        width=max(1, int(self.p(width))))
 
     def arc(self, box, a0, a1, color=None, width=1.2):
-        self.d.arc([self.p(v) for v in box], a0, a1, fill=color or self.ink,
+        self.d.arc([self.qx(box[0]), self.qy(box[1]),
+                    self.qx(box[2]), self.qy(box[3])], a0, a1, fill=color or self.ink,
                    width=max(1, int(self.p(width))))
 
 
@@ -530,19 +553,30 @@ def draw_plate(c: Ctx, ct: Counter, box=(1.2, 1.2, DESIGN - 1.2, DESIGN - 1.2)):
         sheen = Image.new("RGBA", (max(gw, 2), max(gh, 2)), (255, 255, 255, 0))
         alpha = grad.resize((max(gw, 2), max(gh, 2)))
         sheen.putalpha(alpha)
-        c.img.alpha_composite(sheen, (int(c.p(box[0])), int(c.p(box[1]))))
+        c.img.alpha_composite(sheen, (int(c.qx(box[0])), int(c.qy(box[1]))))
         c.d = ImageDraw.Draw(c.img, "RGBA")
 
 
 def draw_border(c: Ctx, box=(1.2, 1.2, DESIGN - 1.2, DESIGN - 1.2), ink="#111111"):
+    """外框是底板级元素：不参与内容缩放/下移（否则会被推到画布外，顶端只剩一道亮边）。"""
+    keep = (c.sc, c.oy, c.sxy)
+    c.sc, c.oy, c.sxy = 1.0, 0.0, None
     c.rrect(box, 2.6, outline=ink, width=1.1)
+    c.sc, c.oy, c.sxy = keep
 
 
 # ---------------------------------------------------------------- 色带
+def bar_span(ct: Counter) -> tuple[float, float]:
+    """编制色带（bottom）的纵向范围：不贴底，下方留出底板与边框。"""
+    t = ct.bar_thickness
+    y1 = DESIGN - BAR_GAP
+    return max(40.0, y1 - t), y1          # 上限：别吃掉符号框与中轴列
+
+
 def draw_band(c: Ctx, ct: Counter, top: float, bottom: float, color: str):
-    c.rect((1.2, top, DESIGN - 1.2, bottom), fill=hx(color))
-    c.rect((1.2, top, DESIGN - 1.2, top + 0.7), fill=lighten(color, 0.35))
-    c.rect((1.2, bottom - 0.5, DESIGN - 1.2, bottom), fill=darken(color, 0.25))
+    c.rect((BAR_X, top, DESIGN - BAR_X, bottom), fill=hx(color))
+    c.rect((BAR_X, top, DESIGN - BAR_X, top + 0.7), fill=lighten(color, 0.35))
+    c.rect((BAR_X, bottom - 0.5, DESIGN - BAR_X, bottom), fill=darken(color, 0.25))
 
 
 def draw_bar(c: Ctx, ct: Counter, color: str):
@@ -550,13 +584,12 @@ def draw_bar(c: Ctx, ct: Counter, color: str):
         return
     t = ct.bar_thickness
     if ct.bar_pos == "top":
-        c.rect((1.2, 1.2, DESIGN - 1.2, 1.2 + t), fill=hx(color))
+        c.rect((BAR_X, 1.2, DESIGN - BAR_X, 1.2 + t), fill=hx(color))
     elif ct.bar_pos == "bottom":
-        y1 = DESIGN - 2.0                     # 贴底板内沿（留出圆角与边框）
-        y0 = max(40.0, y1 - t)                # 上限：别吃掉符号框与中轴列
-        c.rect((1.4, y0, DESIGN - 1.4, y1), fill=hx(color))
-        c.rect((1.4, y0, DESIGN - 1.4, y0 + 0.8), fill=darken(color, 0.45))   # 上沿暗线
-        c.rect((1.4, y0 + 0.8, DESIGN - 1.4, y0 + 1.5), fill=lighten(color, 0.35))
+        y0, y1 = bar_span(ct)
+        c.rect((BAR_X, y0, DESIGN - BAR_X, y1), fill=hx(color))
+        c.rect((BAR_X, y0, DESIGN - BAR_X, y0 + 0.8), fill=darken(color, 0.45))   # 上沿暗线
+        c.rect((BAR_X, y0 + 0.8, DESIGN - BAR_X, y0 + 1.5), fill=lighten(color, 0.35))
     elif ct.bar_pos == "left":
         c.rect((1.2, 1.2, 1.2 + t, DESIGN - 1.2), fill=hx(color))
     elif ct.bar_pos == "right":
@@ -590,6 +623,7 @@ L = dict(
     ARROW_W=4.2, ARROW_TOP=44.9, ARROW_BOT=59.9,
     ARROW_AV_GAP=13.6,             # 有 AV 时箭头在 AV 左侧再左移这么远
     BAND_TOP=56.0, BAND_BOT=69.0,
+    BAND_H=2.6,                    # 机动色带做成编制色带上沿细带时的厚度
     CHIP=(30.4, 38.6, 44.6, 56.2),
     # ---- HQ（取自 HQ Eg 框选实测）
     HQ_RADIUS=(15.6, 14.8),        # 正面/背面：左上指挥范围
@@ -727,28 +761,23 @@ def draw_soft_word(c: Ctx, xy, word: str, size: float, rgb, alpha: float,
     """把文字画到独立图层再按 alpha 合成 —— 得到真正的半透明“底色字”。"""
     layer = Image.new("RGBA", c.img.size, (0, 0, 0, 0))
     lc = Ctx(layer, c.u, "#000000")
+    lc.sc, lc.ax, lc.ay, lc.oy = c.sc, c.ax, c.ay, c.oy
     lc.text(xy, word, size, rgb + (255,), fnt, "mm", max_w=max_w, max_h=max_h)
     layer.putalpha(layer.getchannel("A").point(lambda v: int(v * alpha)))
     c.img.alpha_composite(layer)
     c.d = ImageDraw.Draw(c.img, "RGBA")
 
 
-def draw_support_plate(c: Ctx, ct: Counter, ink: str, value_ink: str):
-    """支援单位：在装甲值/素质/射程/移动力那一片的底层铺 “Support” 大字。
-    默认不画任何数值；support_values=True 时只把 av(左) 与 rng(中) 叠在字样上。"""
-    word = (ct.support_label or "Support").strip()
-    if word:
-        dark_bg = luma(ct.bg) < 0.5
-        rgb = (255, 255, 255) if dark_bg else (0, 0, 0)
-        draw_soft_word(c, (L["CX"], 50.4), word, 14.0, rgb,
-                       0.42 if dark_bg else 0.34, max_w=58.0, max_h=13.5)
-    if not ct.support_values:
+def draw_support_watermark(c: Ctx, ct: Counter):
+    """支援单位：在素质/装甲值/射程/机动力那一片的底层铺半透明 “Support” 大字。
+    先画字样、再画数值，所以数字会盖住字样的一部分（与官方支援算子一致）。"""
+    word = ("Support" if ct.support_label is None else ct.support_label).strip()
+    if not word:
         return
-    if ct.av:
-        draw_value_symmetric(c, (L["CX"] - L["FLANK"], L["VAL_Y"]), ct.av, value_ink,
-                             L["VAL_H"])
-    if ct.rng or ct.rng2:
-        draw_center_column(c, ct.copy(quality=""), value_ink)
+    dark_bg = luma(ct.bg) < 0.5
+    rgb = (255, 255, 255) if dark_bg else (0, 0, 0)
+    draw_soft_word(c, (L["CX"], 50.4), word, 14.0, rgb,
+                   0.42 if dark_bg else 0.34, max_w=58.0, max_h=13.5)
 
 
 def fit_id_size(c: Ctx, strings, size: float, max_len: float, max_h: float) -> float:
@@ -780,12 +809,18 @@ def draw_ids(c: Ctx, ct: Counter, ink: str):
         return
     shared = fit_id_size(c, [ct.unit_id, ct.formation_id], L["ID_SIZE"],
                          L["ID_MAXLEN"], L["ID_MAXH"])
-    if ct.unit_id:
-        c.text((L["ID_X"], L["ID_Y"]), ct.unit_id, shared, ink, "narrow_b", "mm",
-               rotate=90)                             # 左列：自下而上
-    if ct.formation_id:
-        c.text((L["FORM_X"], L["FORM_Y"]), ct.formation_id, shared, ink, "narrow_b", "mm",
-               rotate=-90)                            # 右列：自上而下
+    # 竖排 ID 贴着两侧边框：字号跟着整体放大，但水平位置不动，否则会被推到边框外
+    sxy = c.sxy
+    c.sxy = 1.0
+    try:
+        if ct.unit_id:
+            c.text((L["ID_X"], L["ID_Y"]), ct.unit_id, shared, ink, "narrow_b", "mm",
+                   rotate=90)                         # 左列：自下而上
+        if ct.formation_id:
+            c.text((L["FORM_X"], L["FORM_Y"]), ct.formation_id, shared, ink, "narrow_b", "mm",
+                   rotate=-90)                        # 右列：自上而下
+    finally:
+        c.sxy = sxy
 
 
 def draw_symbol_box(c: Ctx, ct: Counter, ink: str):
@@ -895,8 +930,8 @@ def draw_value_symmetric(c: Ctx, xy, s, color,
         tw = max(2, int(round(tight.width * th / max(1, tight.height))))
     tw += tw % 2                      # 强制偶数宽度 → 墨迹中心必然落在整数像素上
     glyph = tight.resize((tw, th), Image.LANCZOS)
-    cx = int(round(c.p(xy[0])))
-    cy = int(round(c.p(xy[1])))
+    cx = int(round(c.qx(xy[0])))
+    cy = int(round(c.qy(xy[1])))
     px, py = cx - tw // 2, cy - th // 2
     if shadow:
         sil = Image.new("RGBA", glyph.size, (0, 0, 0, 0))
@@ -1000,7 +1035,7 @@ def draw_fit_text(c: Ctx, xy, text: str, target_h: float, max_w: float, color,
     if tw > limit:
         tw = limit - (limit % 2)
     glyph = tight.resize((tw, th), Image.LANCZOS)
-    px_, py_ = int(round(c.p(xy[0]) - tw / 2)), int(round(c.p(xy[1]) - th / 2))
+    px_, py_ = int(round(c.qx(xy[0]) - tw / 2)), int(round(c.qy(xy[1]) - th / 2))
     c.img.alpha_composite(glyph, (px_, py_))
     c.d = ImageDraw.Draw(c.img, "RGBA")
 
@@ -1014,10 +1049,16 @@ def draw_hq(c: Ctx, ct: Counter, ink: str, value_ink: str):
         # 背面：白色水平色带（中线与番号对齐）→ 骰面 → 番号 → 炮击值 → 移动力
         band_h = L["HQ_BAND_H"]
         cy = L["HQ_NAME_B"][1]
+        # 白带是底板级元素，坐标不随 CONTENT_SCALE / CONTENT_OY 变化（否则会伸出左右边框）
+        keep_oy = c.oy
+        c.sxy = 1.0
+        c.oy = 0.0
         c.rect((1.6, cy - band_h / 2, DESIGN - 1.6, cy + band_h / 2),
                fill=hx(L["HQ_BAND_COLOR"]))
         c.line([(1.6, cy - band_h / 2), (DESIGN - 1.6, cy - band_h / 2)], "#C9C9BE", 0.8)
         c.line([(1.6, cy + band_h / 2), (DESIGN - 1.6, cy + band_h / 2)], "#C9C9BE", 0.8)
+        c.sxy = None
+        c.oy = keep_oy
 
         draw_die(c, L["HQ_DIE"], ct.activation or ct.ar, "#141414", "#141414")
         name = ct.formation_id or ct.name
@@ -1144,9 +1185,14 @@ def render(ct: Counter, size: int = 75, ss: int = 4) -> Image.Image:
 
     draw_plate(c, ct)
 
-    # 机动色带
+    # 机动色带：贴着编制色带上沿的一条细带（两者左右留白一致，不会露出彩色小条）
     if ct.show_band and ct.kind in ("av", "dual", "inf", "hq", "train"):
-        draw_band(c, ct, L["BAND_TOP"], L["BAND_BOT"], ct.band)
+        if ct.bar_pos == "bottom" and ct.bar_thickness > 0:
+            _by0, _ = bar_span(ct.copy(bar_thickness=min(ct.bar_thickness, 4.4))
+                               if ct.kind in ("hq", "supply") else ct)
+            draw_band(c, ct, _by0 - L["BAND_H"], _by0, ct.band)
+        else:
+            draw_band(c, ct, L["BAND_TOP"], L["BAND_BOT"], ct.band)
     # 编制色带（战斗单位默认在底边，标记类不画）
     if ct.kind in ("hq", "supply"):
         # HQ 内容要居中，底边只留细色带
@@ -1155,15 +1201,13 @@ def render(ct: Counter, size: int = 75, ss: int = 4) -> Image.Image:
         draw_bar(c, ct, ct.bar_color)
 
     CX, FLANK = L["CX"], L["FLANK"]
+    c.sc = CONTENT_SCALE                     # 底板/色带之后，内容整体等比放大
+    # 战斗单位的内容整体下移，让顶部与底部留白大致相等；其余类型版式本就居中，保持不动
+    c.oy = CONTENT_OY if ct.kind in ("av", "dual", "inf", "support") else 0.0
 
-    if ct.kind == "support":
-        draw_support_plate(c, ct, ink, value_ink)
-        draw_ar(c, ct, value_ink)
-        draw_size(c, ct, ink)
-        draw_symbol_box(c, ct, ink)
-        draw_ids(c, ct, ink)
-
-    elif ct.kind in ("av", "dual", "inf"):
+    if ct.kind in ("av", "dual", "inf", "support"):
+        if ct.kind == "support":
+            draw_support_watermark(c, ct)      # 先铺字样，随后被数值压住
         has_av = bool(ct.av)
         # 左右大数值永远关于中轴对称，字号/字宽上限一致
         left_x, right_x = CX - FLANK, CX + FLANK

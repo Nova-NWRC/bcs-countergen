@@ -31,11 +31,18 @@ TOL_H = 0.5                         # 墨迹高 vs 设计目标（格）
 TOL_RATIO = 0.06                    # 高度比 vs HQ_MA_SCALE
 TOL_C = 0.30                        # 中心线 / 中心漂移（格）
 
-# 版式契约（v1.6.0 实测值）。有意改 L 里这几个常量时，这里必须同步改 —— 红了是在提醒你
-# 确认「改版式」而不是「画歪了」，这正是交接文档 §14.1 要求的「改完对比打印值」。
-EXPECT_ART_H = 13.60                # = HQ_NUM_H
-EXPECT_MA_H = 19.72                 # = HQ_NUM_H * HQ_MA_SCALE
-EXPECT_RATIO = 1.45                 # = HQ_MA_SCALE
+# 版式契约（v1.6.0 实测值，随内容整体缩放 CONTENT_SCALE 等比放大）。有意改 L 里这几个
+# 常量时，这里必须同步改 —— 红了是在提醒你确认「改版式」而不是「画歪了」。
+_K = float(getattr(R, "CONTENT_SCALE", 1.0))
+_AX, _AY = R.SCALE_AX, R.SCALE_AY
+
+
+def _scaled(pt):
+    """把设计坐标换算成缩放后的实际坐标"""
+    return (_AX + (pt[0] - _AX) * _K, _AY + (pt[1] - _AY) * _K)
+EXPECT_ART_H = 13.60 * _K            # = HQ_NUM_H * CONTENT_SCALE
+EXPECT_MA_H = 19.72 * _K             # = HQ_NUM_H * HQ_MA_SCALE * CONTENT_SCALE
+EXPECT_RATIO = 1.45                  # = HQ_MA_SCALE（比值与缩放无关）
 
 
 def make_hq(arty="4", ma="8", move_class="tac"):
@@ -94,10 +101,12 @@ for ma_txt, mc in (("8", "tac"), ("8", "leg"), ("8", "truck"), ("12", "tac")):
     d_ha, d_hm = abs(ha - EXPECT_ART_H), abs(hm - EXPECT_MA_H)
     d_ratio = abs(ratio - EXPECT_RATIO)
     d_c = abs(ca - cm)
-    d_ca = abs(ca - R.L["HQ_ARTY_B"][1])
-    d_cm = abs(cm - R.L["HQ_MA_B"][1])
-    d_xa = abs(cxa - R.L["HQ_ARTY_B"][0])
-    d_xm = abs(cxm - R.L["HQ_MA_B"][0])
+    _ab = _scaled(R.L["HQ_ARTY_B"])
+    _mb = _scaled(R.L["HQ_MA_B"])
+    d_ca = abs(ca - _ab[1])
+    d_cm = abs(cm - _mb[1])
+    d_xa = abs(cxa - _ab[0])
+    d_xm = abs(cxm - _mb[0])
     ok = (d_ha <= TOL_H and d_hm <= TOL_H and d_ratio <= TOL_RATIO and d_c <= TOL_C
           and d_ca <= TOL_C and d_cm <= TOL_C and d_xa <= TOL_C and d_xm <= TOL_C)
     ok_all = ok_all and ok

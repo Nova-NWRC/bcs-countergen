@@ -8,6 +8,11 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bcs_render as R  # noqa: E402
 
+try:                                    # 控制台不是 UTF-8 时 print 中文会炸
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "samples")
 os.makedirs(OUT, exist_ok=True)

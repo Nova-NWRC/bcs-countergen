@@ -62,11 +62,12 @@ specs = [
             bar_pos="none"),
     Counter(kind="supply", side="back", formation_id="90 Inf\nDiv", bg="#7E9B3D",
             bar_pos="none"),
-    # 支援单位（Support 字样铺底，无箭头/MA/素质）
+    # 支援单位（版式与战斗单位相同，只在底部色带印 Support）
     Counter(kind="support", unit_id="Spt", formation_id="10 GD", size_label="II", ar="6",
-            symbol="oval", symbol_mode="glyph", bg="#A3BA68", bar_color="#6E8B3D"),
+            quality="3", ma="8", symbol="oval", symbol_mode="glyph",
+            bg="#A3BA68", bar_color="#6E8B3D"),
     Counter(kind="support", unit_id="Arty", formation_id="82 Abn", size_label="X", ar="5",
-            symbol="text", symbol_letters="ARTY", av="2", rng="3", support_values=True,
+            symbol="text", symbol_letters="ARTY", av="2", quality="3", rng="3", ma="6",
             bg="#C8DEEE", bar_color="#2A8C93"),
     # 图形符号 + 机动色带（DF / 老作风格）
     Counter(kind="av", unit_id="B/37", formation_id="4 AD", size_label="II", ar="6",

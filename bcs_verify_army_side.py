@@ -77,7 +77,7 @@ check("back_ghost=False 与默认不同", sig(ghost_off, "back") != sig(make(), 
 print("\n=== 3. 高级字段 ===")
 ct = make(rng2="2", name="Gren", steps="2", ar_style="disc", range_style="chip",
           ink="#101010", value_ink="#A5121C", bar_pos="top", bar_thickness="10",
-          support_label="Sup", support_values=True, gloss=False, show_band=True,
+          support_label="Sup", gloss=False, show_band=True,
           band="#3A6EA5", note="n1", symbol_text="AB", symbol_mode="letter")
 check("rng2", ct.rng2, "2")
 check("name", ct.name, "Gren")
@@ -89,7 +89,7 @@ check("bar_thickness", ct.bar_thickness, 10.0, 1e-9)
 check("gloss", ct.gloss, False)
 check("show_band", ct.show_band, True)
 check("band", ct.band, "#3A6EA5")
-check("support_values", ct.support_values, True)
+check("support_label", ct.support_label, "Sup")
 check("note", ct.note, "n1")
 check("symbol_text", ct.symbol_text, "AB")
 
@@ -225,6 +225,44 @@ check("CSV 字段含三项布尔覆盖",
       all(k in A.CSV_FIELDS for k in ("assault_move", "hard_move", "breakthrough_move")), True)
 check("移动面列显示 突无", A.side_note({"assault_move": "-"}), "突无")
 check("移动面列显示 突1 硬1", A.side_note({"assault_move": "1", "hard_move": "1"}), "突1 硬1")
+
+print("\n=== 10. 支援单位：数值照画，Support 字样垫在数字底下 ===")
+_sup = make(kind="support", support_label="Support")
+_inf = make()
+check("清空 support_label 后 == 战斗卡",
+      sig(_sup.copy(support_label=""), "front"), sig(_inf, "front"))
+check("默认 support_label 会多出字样", sig(_sup, "front") != sig(_inf, "front"), True)
+
+import numpy as np  # noqa: E402
+
+
+def _arr(ct):
+    return np.asarray(R.render(ct, 300, ss=2).convert("RGB"), dtype=int)
+
+
+# 数值区：用“清空全部数值的战斗卡”和“战斗卡”相减，得到大数值的墨迹遮罩
+_blank = _arr(_inf.copy(av="", quality="", rng="", rng2="", ma=""))
+_nums = np.abs(_arr(_inf) - _blank).max(axis=2) > 8
+# 只比“数字实心部分”：边缘反锯齿像素会和底下的字样混色，属正常
+_core = _nums.copy()
+for _dy in (-1, 0, 1):
+    for _dx in (-1, 0, 1):
+        _core &= np.roll(np.roll(_nums, _dy, axis=0), _dx, axis=1)
+_diff = np.abs(_arr(_sup) - _arr(_inf)).max(axis=2) > 8
+_leak = int(_diff[_core].sum()) if _core.any() else -1
+print(f"      数字实心像素 {int(_core.sum())} 个，其中被字样影响 {_leak} 个（仅描边反锯齿允许极少量）")
+check("数字压在字样上", bool(_core.any()) and _leak <= max(8, int(_core.sum() * 0.005)), True)
+# 字样垫在底下：贴住字的地方编号仍与战斗卡完全相同，说明数字压住了字样
+_ys = np.where(np.abs(_arr(_sup) - _arr(_inf)).max(axis=2) > 8)[0]
+_PX = 300 / 75.0
+print(f"      字样可见墨迹 y = {round(_ys.min() / _PX, 2)}..{round(_ys.max() / _PX, 2)} 格")
+_k = float(getattr(R, "CONTENT_SCALE", 1.0))
+_oy = float(getattr(R, "CONTENT_OY", 0.0))
+check("字样落在数值行区间",
+      bool(_ys.size) and 42.0 * _k + _oy <= _ys.min() / _PX <= 46.0 * _k + 1.0 + _oy, True)
+check("kind_move 支援面也带数值",
+      sig(make(kind_move="support", support_label=""), "back"),
+      sig(make(kind="support", support_label="").copy(kind_move="", back_ghost=False), "back"))
 
 for p in (csv_path,):
     try:

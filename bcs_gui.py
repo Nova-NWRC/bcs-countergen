@@ -204,7 +204,6 @@ class App:
         row2(g, 1, "炮兵点数", self._entry(g, "arty"),
              "Support 文字", self._entry(g, "support_label"))
         chk(g, "hq_box_tint", "HQ 兵牌底色跟随编制色带", 2, 0, span=4)
-        chk(g, "support_values", "支援单位叠加数值", 3, 0, span=4)
 
         # ---- ⑥ 配色 · 色带 --------------------------------------------
         g = group("⑥ 配色 · 色带")
@@ -251,7 +250,8 @@ class App:
 
     def _entry(self, parent, key):
         if key not in self.vars:
-            self.vars[key] = tk.StringVar()
+            # 支援字样的默认值：支援单位一选出来就该带 "Support"，清空则故意不印
+            self.vars[key] = tk.StringVar(value="Support" if key == "support_label" else "")
         e = ttk.Entry(parent, textvariable=self.vars[key])
         e.bind("<KeyRelease>", lambda ev, k=key: self._push(k, self.vars[k].get()))
         return e
@@ -289,6 +289,10 @@ class App:
 
     def _push(self, key, value):
         setattr(self.ct, key, value)
+        # 切到支援单位时补上默认字样，省得用户还要手输
+        if key == "kind" and value == "support" and not self.ct.support_label:
+            self.ct.support_label = "Support"
+            self.vars["support_label"].set("Support")
         self._lazy()
 
     def _apply_choice(self, key, table):

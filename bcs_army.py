@@ -66,7 +66,7 @@ ROW_TEXT_KEYS = ("kind", "unit_id", "formation_id", "size_label", "ar", "av",
                  # 布尔量的面级三态：留空 = 沿用，"-" = 不画，其余 = 画
                  "assault_move", "hard_move", "breakthrough_move")
 ROW_BOOL_KEYS = ("hard", "assault", "no_rebuild", "breakthrough", "gloss",
-                 "hq_box_tint", "show_band", "support_values", "back_ghost")
+                 "hq_box_tint", "show_band", "back_ghost")
 ROW_BOOL_ON = {"gloss", "hq_box_tint", "back_ghost"}   # Counter 里默认 True 的几项
 # 单行可以覆盖的「编制级」属性：留空 = 用编制的值
 ROW_EXTRA_KEYS = ("symbol",)
@@ -113,7 +113,7 @@ def new_row(kind: str, formation_id: str, **kw) -> dict:
                symbol_text="", symbol_letters="", symbol_mode="",
                band="", bar_pos="", bar_thickness="",
                ink="", value_ink="", gloss=True, hq_box_tint=True, show_band=False,
-               support_label="", support_values=False,
+               support_label="",
                ar_style="", range_style="", note="",
                ar_move="", quality_move="", av_move="", rng_move="", rng2_move="",
                ma_move="", move_class_move="", back_ghost=True,
@@ -222,7 +222,7 @@ def add_formation(army: dict, fid: str, bg: str, bar: str, symbol: str,
 
 
 CSV_BOOL = ["hard", "assault", "no_rebuild", "breakthrough", "gloss", "hq_box_tint",
-            "show_band", "support_values", "back_ghost"]
+            "show_band", "back_ghost"]
 CSV_TEXT = [k for k in ROW_TEXT_KEYS if k not in CSV_BOOL] + ["symbol"]
 CSV_FIELDS = CSV_TEXT + CSV_BOOL + ["bg", "bar_color"]
 CSV_TRUE = {"1", "true", "yes", "y", "是", "√", "on"}
@@ -602,8 +602,7 @@ class ArmyApp:
 
         for i, (key, text) in enumerate((("show_band", "显示机动色带"),
                                          ("gloss", "高光斜面"),
-                                         ("hq_box_tint", "HQ 兵牌随色带"),
-                                         ("support_values", "支援叠数字"))):
+                                         ("hq_box_tint", "HQ 兵牌随色带"))):
             ttk.Checkbutton(tab_adv, text=text, variable=self.b[key],
                             command=lambda k=key: self.push_flag(k)
                             ).grid(row=5 + i, column=4, columnspan=2, sticky="w")
